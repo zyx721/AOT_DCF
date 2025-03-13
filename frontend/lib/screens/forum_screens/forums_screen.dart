@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
-
+import 'package:carousel_slider/carousel_slider.dart'; // Add this import
 
 class FundraisingHomePage extends StatelessWidget {
+  final List<String> imagePaths = [
+    'assets/sample1.jpg',
+    'assets/sample2.jpg',
+    'assets/sample3.jpg',
+  ];
+
+  final List<String> imageCaptions = [
+    'Help Alice Brain Surgery',
+    'Support Flood Victims',
+    'Education for All',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Column(
@@ -71,16 +75,63 @@ class FundraisingHomePage extends StatelessWidget {
               ),
             ),
             SizedBox(height: 20),
+            _buildImageSlider(), // Image Slider added here
+            SizedBox(height: 20),
             _buildFundraisingSection('Urgent Fundraising', ['All', 'Medical', 'Disaster', 'Education']),
             SizedBox(height: 20),
-            _buildFundraisingSection('Coming to an end', []),
-            SizedBox(height: 20),
-            _buildFundraisingSection('Watch the Impact of Your Donation', []),
-            SizedBox(height: 20),
-            _buildFundraisingSection('Prayers from Good People', []),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImageSlider() {
+    return CarouselSlider(
+      options: CarouselOptions(
+        height: 200.0,
+        enlargeCenterPage: true,
+        autoPlay: true,
+        aspectRatio: 16 / 9,
+        autoPlayInterval: Duration(seconds: 4),
+        autoPlayAnimationDuration: Duration(milliseconds: 800),
+        autoPlayCurve: Curves.fastOutSlowIn,
+        enableInfiniteScroll: true,
+      ),
+      items: imagePaths.asMap().entries.map((entry) {
+        int index = entry.key;
+        String imagePath = entry.value;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(imagePath, fit: BoxFit.cover, width: double.infinity),
+              Container(
+                alignment: Alignment.bottomLeft,
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.6),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Text(
+                  imageCaptions[index],
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
