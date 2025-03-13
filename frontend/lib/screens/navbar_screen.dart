@@ -17,13 +17,46 @@ class _NavBarScreenState extends State<NavBarScreen> {
   final List<Widget> _pages = [
     const UploadScreen(),
     const MapScreen(),
-    const NotificationScreen(),
     const ProfileScreen(),
   ];
+
+  String _getTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Upload Documents';
+      case 1:
+        return 'Map View';
+      case 2:
+        return 'Profile';
+      default:
+        return 'DCF';
+    }
+  }
+
+  void _openNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _getTitle(),
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.deepPurple,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.white),
+            onPressed: _openNotifications,
+          ),
+        ],
+      ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -35,10 +68,6 @@ class _NavBarScreenState extends State<NavBarScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Notifications',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
