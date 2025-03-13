@@ -214,12 +214,10 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             );
 
-            // Check if this is the user's first time
-            if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('isLoggedIn', true);
+            // Check if user has a country
+            if (!userDoc.exists || !userDoc.data()!.containsKey('country')) {
               if (mounted) {
-                Navigator.pushReplacementNamed(context, '/navbar');
+                Navigator.pushReplacementNamed(context, '/select-country');
               }
             } else {
               if (mounted) {
@@ -490,15 +488,13 @@ class _LoginScreenState extends State<LoginScreen>
               .doc(user.uid)
               .get();
 
-          if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('isLoggedIn', true);
+          if (!userDoc.exists || !userDoc.data()!.containsKey('country')) {
             if (mounted) {
-              Navigator.pushReplacementNamed(context, '/navbar');
+              Navigator.pushReplacementNamed(context, '/select-country');
             }
           } else {
             if (mounted) {
-              Navigator.pushReplacementNamed(context, '/info');
+              Navigator.pushReplacementNamed(context, '/navbar');
             }
           }
         } else {
