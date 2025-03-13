@@ -218,9 +218,13 @@ class _LoginScreenState extends State<LoginScreen>
             if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('isLoggedIn', true);
-              Navigator.pushNamed(context, '/navbar');
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/navbar');
+              }
             } else {
-              Navigator.pushNamed(context, '/info');
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/navbar');
+              }
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -489,9 +493,13 @@ class _LoginScreenState extends State<LoginScreen>
           if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('isLoggedIn', true);
-            Navigator.pushNamed(context, '/navbar');
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/navbar');
+            }
           } else {
-            Navigator.pushNamed(context, '/info');
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/info');
+            }
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
