@@ -16,7 +16,7 @@ class ChatDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight - 8),
         child: Container(
@@ -90,11 +90,19 @@ class ChatDetailScreen extends StatelessWidget {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Center(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Text(
                 "Today",
-                style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
               ),
             ),
           ),
@@ -102,36 +110,72 @@ class ChatDetailScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                buildMessage("Hello, good morning! 😊", false),
-                buildMessage("I am interested in making a donation...", false),
-                buildMessage(
-                    "Hi, good afternoon. Donations will be distributed to flood victims in Surabaya.",
-                    true),
-                buildMessage("Great, thanks a lot for the information 😊", false),
-                buildMessage("I will make a donation as soon as possible after this", false),
+                _buildMessageGroup("9:41 AM", [
+                  buildMessage("Hello, good morning! 😊", false),
+                  buildMessage("I am interested in making a donation...", false),
+                ]),
+                _buildMessageGroup("10:15 AM", [
+                  buildMessage(
+                      "Hi, good afternoon. Donations will be distributed to flood victims in Surabaya.",
+                      true),
+                ]),
+                _buildMessageGroup("10:30 AM", [
+                  buildMessage("Great, thanks a lot for the information 😊", false),
+                  buildMessage(
+                      "I will make a donation as soon as possible after this",
+                      false),
+                ]),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5)],
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
+                IconButton(
+                  icon: Icon(Icons.attach_file,
+                      color: const Color(0xFF57AB7D).withOpacity(0.6)),
+                  onPressed: () {},
+                ),
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: "Type message ...",
-                      hintStyle: GoogleFonts.poppins(),
+                      hintText: "Type message...",
+                      hintStyle:
+                          GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
                       border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.send, color: const Color(0xFF57AB7D)),
-                  onPressed: () {},
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color.fromARGB(255, 26, 126, 51),
+                        Color(0xFF57AB7D),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                    onPressed: () {},
+                  ),
                 ),
               ],
             ),
@@ -141,21 +185,81 @@ class ChatDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget buildMessage(String text, bool isMe) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF57AB7D) : Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildMessageGroup(String time, List<Widget> messages) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            time,
+            style: GoogleFonts.poppins(
+              color: Colors.grey[500],
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
-        constraints: const BoxConstraints(maxWidth: 250),
-        child: Text(
-          text,
-          style: GoogleFonts.poppins(
-            color: isMe ? Colors.white : Colors.black,
+        ...messages,
+      ],
+    );
+  }
+
+  Widget buildMessage(String text, bool isMe) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: EdgeInsets.only(
+            left: isMe ? 64 : 0,
+            right: isMe ? 0 : 64,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isMe
+                ? const LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51),
+                      Color(0xFF57AB7D),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isMe ? null : Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMe ? 16 : 4),
+              bottomRight: Radius.circular(isMe ? 4 : 16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: isMe ? Colors.white : Colors.black87,
+                  fontSize: 14,
+                ),
+              ),
+              if (isMe)
+                Icon(
+                  Icons.done_all,
+                  size: 16,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+            ],
           ),
         ),
       ),
