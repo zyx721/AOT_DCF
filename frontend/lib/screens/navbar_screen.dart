@@ -17,128 +17,26 @@ class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
   
   final List<Widget> _pages = [
-    const ForumsScreen(),
     const MapScreen(),
+   FundraisingHomePage(),
     const NotificationScreen(),
-    ProfileScreen(),
+     ProfileScreen(),
   ];
 
-  void _showCreateForumModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
-      ),
-      builder: (BuildContext context) {
-          padding: const EdgeInsets.all(20),
-          height: MediaQuery.of(context).size.height * 0.7,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Create a Forum',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Choose forum type:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateForumScreen(isAnonymous: false),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.public, size: 50, color: Colors.blue),
-                            SizedBox(height: 10),
-                            Text(
-                              'Public Forum',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 10),
-                            Text(
-                              'Visible to everyone with all contributor details shown',
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateForumScreen(isAnonymous: true),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.shade50,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: Colors.purple.shade200),
-                        ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.masks, size: 50, color: Colors.purple),
-                            SizedBox(height: 10),
-                            Text(
-                              'Anonymous Forum',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 10),
-                            Text(
-                              'Protects privacy of those in need by hiding personal details',
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
       floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateForumModal,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateFundraisingScreen(),
+            ),
+          );
+        },
         backgroundColor: Colors.deepPurple,
         child: const Icon(Icons.add, size: 32),
         tooltip: 'Create Forum',
@@ -160,14 +58,14 @@ class _NavBarScreenState extends State<NavBarScreen> {
                   children: [
                     IconButton(
                       icon: Icon(
-                        Icons.forum,
+                        Icons.map,
                         color: _selectedIndex == 0 ? Colors.deepPurple : Colors.grey,
                       ),
                       onPressed: () => setState(() => _selectedIndex = 0),
                     ),
                     IconButton(
                       icon: Icon(
-                        Icons.map,
+                        Icons.forum,
                         color: _selectedIndex == 1 ? Colors.deepPurple : Colors.grey,
                       ),
                       onPressed: () => setState(() => _selectedIndex = 1),

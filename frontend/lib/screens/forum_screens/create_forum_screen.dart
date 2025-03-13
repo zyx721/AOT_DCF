@@ -1,311 +1,460 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uuid/uuid.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import '../../services/drive.dart';
 
-class CreateForumScreen extends StatefulWidget {
-  final bool isAnonymous;
-  
-  const CreateForumScreen({
-    Key? key,
-    required this.isAnonymous,
-  }) : super(key: key);
-
+class CreateFundraisingScreen extends StatefulWidget {
   @override
-  _CreateForumScreenState createState() => _CreateForumScreenState();
+  _CreateFundraisingScreenState createState() => _CreateFundraisingScreenState();
 }
 
-class _CreateForumScreenState extends State<CreateForumScreen> {
+class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  String _visibility = 'ALL';
-  bool _isLoading = false;
-  final _uuid = const Uuid();
-  String _forumCode = '';
+  TextEditingController _titleController = TextEditingController();
+  TextEditingController _donationAmountController = TextEditingController();
+  TextEditingController _fundUsageController = TextEditingController();
+  TextEditingController _recipientNameController = TextEditingController();
+  TextEditingController _storyController = TextEditingController();
+  String? _selectedCategory;
+  DateTime? _selectedDate;
+  bool _agreedToTerms = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _forumCode = _generateForumCode();
-  }
+  final GoogleDriveService _driveService = GoogleDriveService();
+  final ImagePicker _picker = ImagePicker();
+  File? _mainImage;
+  File? _proposalDoc;
+  File? _additionalDoc;
+  String? _mainImageUrl;
+  String? _proposalDocUrl;
+  String? _additionalDocUrl;
+  bool _isUploading = false;
 
-  String _generateForumCode() {
-    return _uuid.v4().substring(0, 6).toUpperCase();
-  }
-
-  Future<void> _createForum() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          final forumId = _uuid.v4();
-          
-          // Create forum document
-          await FirebaseFirestore.instance.collection('forums').doc(forumId).set({
-            'id': forumId,
-            'title': _titleController.text,
-            'description': _descriptionController.text,
-            'isAnonymous': widget.isAnonymous,
-            'visibility': _visibility,
-            'forumCode': _forumCode,
-            'createdBy': user.uid,
-            'createdAt': FieldValue.serverTimestamp(),
-            'memberCount': 1,
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-          
-          // Add creator as a member
-          await FirebaseFirestore.instance
-              .collection('forums')
-              .doc(forumId)
-              .collection('members')
-              .doc(user.uid)
-              .set({
-            'userId': user.uid,
-            'role': 'admin',
-            'joinedAt': FieldValue.serverTimestamp(),
-          });
-          
-          // Add forum to user's forum list
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('forums')
-              .doc(forumId)
-              .set({
-            'forumId': forumId,
-            'role': 'admin',
-            'joinedAt': FieldValue.serverTimestamp(),
-          });
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Forum created successfully! Forum code: $_forumCode'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          
-          // Navigate back to forums list
-          Navigator.pop(context);
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating forum: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  List<File?> _secondaryImages = List.filled(4, null);
+  List<String?> _secondaryImageUrls = List.filled(4, null);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.isAnonymous ? 'Create Anonymous Forum' : 'Create Public Forum',
+        title: Text('Create New Fundraising'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: widget.isAnonymous ? Colors.purple : Colors.blue,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.isAnonymous)
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.purple.shade200),
-                        ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.privacy_tip, color: Colors.purple),
-                            SizedBox(height: 10),
-                            Text(
-                              'Anonymous Forum',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              'Personal details will be hidden to protect the dignity of those in need.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Forum Title',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a title';
-                        }
-                        return null;
-                      },
-                    ),
-                    
-                    const SizedBox(height: 15),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.description),
-                      ),
-                      maxLines: 4,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a description';
-                        }
-                        return null;
-                      },
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Forum Visibility:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    
-                    RadioListTile<String>(
-                      title: const Text('Public (Visible to everyone)'),
-                      subtitle: const Text('Anyone can find and join this forum'),
-                      value: 'ALL',
-                      groupValue: _visibility,
-                      onChanged: (value) {
-                        setState(() {
-                          _visibility = value!;
-                        });
-                      },
-                    ),
-                    
-                    RadioListTile<String>(
-                      title: const Text('Private (Invitation only)'),
-                      subtitle: const Text('Only people with the forum code can join'),
-                      value: 'PRIVATE',
-                      groupValue: _visibility,
-                      onChanged: (value) {
-                        setState(() {
-                          _visibility = value!;
-                        });
-                      },
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Forum Code:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Text(
-                                _forumCode,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.refresh),
-                                onPressed: () {
-                                  setState(() {
-                                    _forumCode = _generateForumCode();
-                                  });
-                                },
-                                tooltip: 'Generate new code',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _visibility == 'PRIVATE'
-                                ? 'Share this code with people you want to invite'
-                                : 'Anyone can join, but they can also use this code',
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _createForum,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.isAnonymous ? Colors.purple : Colors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'Create Forum',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildImageUploader(),
+                _buildTextField(_titleController, 'Title', 'Enter title', true),
+                _buildDropdownField(),
+                _buildTextField(_donationAmountController, 'Total Donation Required', 'Enter amount', true, isNumber: true),
+                _buildDatePicker(),
+                _buildTextField(_fundUsageController, 'Fund Usage Plan', 'Describe usage plan', true, maxLines: 3),
+                _buildTextField(_recipientNameController, 'Name of Recipients', 'Enter name', true),
+                _buildFileUploadField('Upload Donation Proposal Documents', true),
+                _buildFileUploadField('Upload Aditional Documents (Optional)', false),
+                _buildTextField(_storyController, 'Story', 'Describe donation story', true, maxLines: 3),
+                _buildTermsCheckbox(),
+                _buildActionButtons(),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _mainImage = File(image.path);
+      });
+    }
+  }
+
+  Future<void> _pickSecondaryImage(int index) async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _secondaryImages[index] = File(image.path);
+      });
+    }
+  }
+
+  Future<void> _pickDocument(bool isProposal) async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (result != null) {
+      setState(() {
+        if (isProposal) {
+          _proposalDoc = File(result.files.single.path!);
+        } else {
+          _additionalDoc = File(result.files.single.path!);
+        }
+      });
+    }
+  }
+
+  Future<void> _uploadFiles() async {
+    setState(() => _isUploading = true);
+    try {
+      if (_mainImage != null) {
+        _mainImageUrl = await _driveService.uploadFile(_mainImage!);
+      }
+      // Upload secondary images
+      for (int i = 0; i < _secondaryImages.length; i++) {
+        if (_secondaryImages[i] != null) {
+          _secondaryImageUrls[i] = await _driveService.uploadFile(_secondaryImages[i]!);
+        }
+      }
+      if (_proposalDoc != null) {
+        _proposalDocUrl = await _driveService.uploadFile(_proposalDoc!);
+      }
+      if (_additionalDoc != null) {
+        _additionalDocUrl = await _driveService.uploadFile(_additionalDoc!);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading files: $e')),
+      );
+    }
+    setState(() => _isUploading = false);
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Container(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.green,
+                  child: Icon(
+                    Icons.check,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Successfully Created!',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 20),
+                TweenAnimationBuilder(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: Duration(seconds: 1),
+                  builder: (context, value, child) {
+                    return LinearProgressIndicator(value: value as double);
+                  },
+                  onEnd: () {
+                    Navigator.of(context).pop(); // Close dialog
+                    Navigator.of(context).pop(); // Return to previous screen
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _submitFundraiser() async {
+    if (_formKey.currentState!.validate() && _agreedToTerms) {
+      await _uploadFiles();
+      
+      try {
+        await FirebaseFirestore.instance.collection('fundraisers').add({
+          'title': _titleController.text,
+          'category': _selectedCategory,
+          'donationAmount': double.parse(_donationAmountController.text),
+          'expirationDate': _selectedDate,
+          'fundUsage': _fundUsageController.text,
+          'recipientName': _recipientNameController.text,
+          'story': _storyController.text,
+          'mainImageUrl': _mainImageUrl,
+          'proposalDocUrl': _proposalDocUrl,
+          'additionalDocUrl': _additionalDocUrl,
+          'secondaryImageUrls': _secondaryImageUrls,
+          'createdAt': FieldValue.serverTimestamp(),
+          'funding': 0,
+          'status': 'pending',
+        });
+        
+        _showSuccessDialog();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating fundraiser: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildImageUploader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            height: 300, // Increased from 200
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.green, width: 2),
+              borderRadius: BorderRadius.circular(20),
+              image: _mainImage != null
+                  ? DecorationImage(
+                      image: FileImage(_mainImage!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: _mainImage == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo, size: 80, color: Colors.green), // Increased from 50
+                      const SizedBox(height: 16),
+                      Text(
+                        'Add Cover Image',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold
+                        ),
+                      ),
+                    ],
+                  )
+                : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(4, (index) => _buildSecondaryImageSelector(index)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryImageSelector(int index) {
+    return GestureDetector(
+      onTap: () => _pickSecondaryImage(index),
+      child: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.green, width: 2),
+          borderRadius: BorderRadius.circular(20),
+          image: _secondaryImages[index] != null
+              ? DecorationImage(
+                  image: FileImage(_secondaryImages[index]!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: _secondaryImages[index] == null
+            ? Icon(Icons.add_photo_alternate, color: Colors.green, size: 30)
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, String hint, bool required, {bool isNumber = false, int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+        ),
+        validator: required ? (value) => value!.isEmpty ? 'This field is required' : null : null,
+      ),
+    );
+  }
+
+  Widget _buildDropdownField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: DropdownButtonFormField<String>(
+        value: _selectedCategory,
+        decoration: InputDecoration(
+          labelText: 'Category',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+        ),
+        items: ['Medical', 'Education', 'Disaster Relief','Poverty'].map((category) {
+          return DropdownMenuItem(
+            value: category,
+            child: Text(category),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedCategory = value;
+          });
+        },
+        validator: (value) => value == null ? 'Please select a category' : null,
+      ),
+    );
+  }
+
+  Widget _buildDatePicker() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: 'Choose Donation Expiration Date',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          suffixIcon: Icon(Icons.calendar_today, color: Colors.green),
+        ),
+        onTap: () async {
+          DateTime? pickedDate = await showDatePicker(
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime.now(),
+            lastDate: DateTime(2100),
+          );
+          if (pickedDate != null) {
+            setState(() {
+              _selectedDate = pickedDate;
+            });
+          }
+        },
+        controller: TextEditingController(text: _selectedDate != null ? DateFormat.yMMMd().format(_selectedDate!) : ''),
+        validator: (value) => value!.isEmpty ? 'Please select a date' : null,
+      ),
+    );
+  }
+
+  Widget _buildFileUploadField(String label, bool isProposal) {
+    File? selectedFile = isProposal ? _proposalDoc : _additionalDoc;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.green, width: 2),
+          ),
+          suffixIcon: Icon(Icons.upload_file, color: Colors.green),
+          hintText: selectedFile != null ? selectedFile.path.split('/').last : 'No file selected',
+        ),
+        onTap: () => _pickDocument(isProposal),
+      ),
+    );
+  }
+
+  Widget _buildTermsCheckbox() {
+    return Row(
+      children: [
+        Checkbox(
+          fillColor: MaterialStateProperty.all(Colors.green),
+          value: _agreedToTerms,
+          onChanged: (value) {
+            setState(() {
+              _agreedToTerms = value!;
+            });
+          },
+        ),
+        Expanded(
+          child: Text('By checking this, you agree to the terms & conditions that apply to us.'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        ElevatedButton(
+          onPressed: _isUploading ? null : _submitFundraiser,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          child: _isUploading
+              ? CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  'Create & Submit',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 }
