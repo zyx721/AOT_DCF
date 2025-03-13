@@ -56,7 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100], // Changed to light grey
       appBar: ModernAppBar(
         title: "Profile",
         actions: [
@@ -82,174 +82,188 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final aboutMe = userData['aboutMe'] as String? ?? "No description provided yet.";
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16), // Added top padding
-            child: Column(
-              children: [
-                Center(
-                  child: Column(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+                  Stack(
                     children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundImage: NetworkImage(user?.photoURL ?? ''),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              radius: 15,
-                              backgroundColor: Colors.white,
-                              child: Icon(
-                                Icons.edit,
-                                color: const Color(0xFF57AB7D),
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ],
+                      CircleAvatar(
+                        radius: 70, // Increased from 50
+                        backgroundImage: NetworkImage(user?.photoURL ?? ''),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        user?.displayName ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Add About Me section
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "About Me",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF57AB7D),
-                                  ),
-                                ),
-                                Icon(Icons.edit, 
-                                    color: const Color(0xFF57AB7D),
-                                    size: 18),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              aboutMe,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 20, // Increased from 15
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Icons.edit,
+                            color: const Color(0xFF57AB7D),
+                            size: 24, // Increased from 20
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Stats
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatItem("Fundraising", "0"),
-                    _buildStatItem("Followers", "0"),
-                    _buildStatItem("Following", "0"),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Wallet Balance
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.account_balance_wallet,
-                                color: const Color(0xFF57AB7D)),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "\$0",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                        Text(
+                          user?.displayName ?? '',
+                          style: GoogleFonts.poppins(
+                            fontSize: 24, // Increased from 22
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // About Me section
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "About Me",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF57AB7D),
+                                    ),
                                   ),
+                                  Icon(Icons.edit, 
+                                      color: const Color(0xFF57AB7D),
+                                      size: 18),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                aboutMe,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
                                 ),
-                                Text(
-                                  "My wallet balance",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.grey,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Rest of the content with proper padding
+                        // Stats
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatItem("Fundraising", "0"),
+                            _buildStatItem("Followers", "0"),
+                            _buildStatItem("Following", "0"),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Wallet Balance
+                        Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.account_balance_wallet,
+                                        color: const Color(0xFF57AB7D)),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "\$0",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          "My wallet balance",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {},
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF57AB7D),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
                                   ),
+                                  child: Text("Top up",
+                                      style: GoogleFonts.poppins(color: Colors.white)),
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Interests Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Interest",
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Icon(Icons.edit, color: const Color(0xFF57AB7D)),
                           ],
                         ),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF57AB7D),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Text("Top up",
-                              style: GoogleFonts.poppins(color: Colors.white)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: interests
+                              .map((e) => _buildInterestChip(e.toString()))
+                              .toList(),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Interests Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Interest",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Icon(Icons.edit, color: const Color(0xFF57AB7D)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: interests
-                      .map((e) => _buildInterestChip(e.toString()))
-                      .toList(),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           );
         },
