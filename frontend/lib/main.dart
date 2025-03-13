@@ -6,6 +6,8 @@ import 'auth/signup_screen.dart';
 import 'auth/forgot_password_screen.dart';
 import 'screens/navbar_screen.dart';
 import 'screens/select_country_screen.dart'; // Add this line
+import 'screens/fill_profile_screen.dart';
+import 'screens/select_interest_screen.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print("Handling a background message: ${message.messageId}");
@@ -46,6 +48,8 @@ class MyApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/navbar': (context) => const NavBarScreen(),
         '/select-country': (context) => const SelectCountryScreen(), // Add this line
+        '/fill-profile': (context) => const FillProfileScreen(), // Add this line
+        '/select-interests': (context) => const SelectInterestScreen(),
       },
     );
   }

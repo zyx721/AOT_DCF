@@ -53,7 +53,7 @@ class _SelectCountryScreenState extends State<SelectCountryScreen> {
         });
 
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/navbar');
+          Navigator.pushReplacementNamed(context, '/fill-profile');
         }
       }
     } catch (e) {
@@ -150,7 +150,8 @@ class _SelectCountryScreenState extends State<SelectCountryScreen> {
               itemBuilder: (context, index) {
                 final country = filteredCountries[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: ListTile(
                     title: Text(
                       country['name']!,
@@ -180,7 +181,8 @@ class _SelectCountryScreenState extends State<SelectCountryScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
-              onPressed: selectedCountry != null ? _saveCountryAndNavigate : null,
+              onPressed:
+                  selectedCountry != null ? _saveCountryAndNavigate : null,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(

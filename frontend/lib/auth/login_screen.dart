@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -164,13 +163,15 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (googleUser != null) {
         try {
-          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final GoogleSignInAuthentication googleAuth =
+              await googleUser.authentication;
           final AuthCredential credential = GoogleAuthProvider.credential(
             accessToken: googleAuth.accessToken,
             idToken: googleAuth.idToken,
           );
 
-          final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+          final UserCredential userCredential =
+              await FirebaseAuth.instance.signInWithCredential(credential);
           final User? user = userCredential.user;
 
           if (user != null) {
@@ -192,7 +193,10 @@ class _LoginScreenState extends State<LoginScreen>
 
             if (!userDoc.exists ||
                 userDoc.data()?['photoURL'] == null ||
-                (userDoc.data()?['photoURL']?.isEmpty ?? true && user.photoURL != null && user.photoURL!.isNotEmpty)) {
+                (userDoc.data()?['photoURL']?.isEmpty ??
+                    true &&
+                        user.photoURL != null &&
+                        user.photoURL!.isNotEmpty)) {
               userData['photoURL'] = user.photoURL ?? '';
             }
 
@@ -214,15 +218,9 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             );
 
-            // Check if user has a country
-            if (!userDoc.exists || !userDoc.data()!.containsKey('country')) {
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/select-country');
-              }
-            } else {
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/navbar');
-              }
+            // Always navigate to select-country screen
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/select-country');
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -280,9 +278,10 @@ class _LoginScreenState extends State<LoginScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color.fromARGB(255, 106, 27, 154), // Rich Amethyst
-              Color.fromARGB(255, 171, 71, 188), // Orchid
-              Color.fromARGB(255, 145, 41, 140), // Wild Strawberry
+              Color.fromRGBO(255, 255, 255, 1), // Royal Blue
+              Color.fromARGB(65, 26, 126, 51), // Deep Blue
+              Color.fromARGB(120, 26, 126, 51), // Deep Blue
+              Color.fromARGB(255, 26, 126, 51), // Deep Blue
             ],
           ),
         ),
@@ -303,7 +302,8 @@ class _LoginScreenState extends State<LoginScreen>
                           decoration: BoxDecoration(
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: const Color.fromARGB(255, 255, 255, 255)
+                                    .withOpacity(0.3),
                                 offset: const Offset(0, 8),
                                 blurRadius: 200,
                                 spreadRadius: 2,
@@ -311,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           child: Image.asset(
-                            'assets/images/onboarding3_b.png', // Replace with your logo path
+                            'assets/images/logo.png', // Updated logo path
                             height: 220,
                             width: 220,
                           ),
@@ -325,7 +325,7 @@ class _LoginScreenState extends State<LoginScreen>
                     style: GoogleFonts.poppins(
                       fontSize: 32,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: const Color.fromARGB(255, 0, 0, 0),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -435,7 +435,8 @@ class _LoginScreenState extends State<LoginScreen>
             // Show verification needed message with resend option
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Please verify your email before logging in'),
+                content:
+                    const Text('Please verify your email before logging in'),
                 backgroundColor: Colors.orange,
                 duration: const Duration(seconds: 8),
                 action: SnackBarAction(
@@ -482,20 +483,9 @@ class _LoginScreenState extends State<LoginScreen>
 
           await saveDeviceTokenToFirestore(user.uid);
 
-          // Navigate based on user status
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-
-          if (!userDoc.exists || !userDoc.data()!.containsKey('country')) {
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/select-country');
-            }
-          } else {
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/navbar');
-            }
+          // Always navigate to select-country screen
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/select-country');
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
