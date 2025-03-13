@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "208606035883",
+    "project_id": "dcf-aot",
+    "storage_bucket": "dcf-aot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:208606035883:android:5882519673201444de5cee",
+        "android_client_info": {
+          "package_name": "com.DCF.AOT"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "208606035883-2n3b7ccanl1muas10ejip3f28q39aao9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.DCF.AOT",
+            "certificate_hash": "c99d353001ba579008bbdf1e200c1e54e1d67fde"
+          }
+        },
+        {
+          "client_id": "208606035883-ik0g0oaciu1007a53pu6b584rb1h9jrf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFAdT2p57_gkF4be8HzSM2TbTJANIuHO0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "208606035883-ik0g0oaciu1007a53pu6b584rb1h9jrf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
