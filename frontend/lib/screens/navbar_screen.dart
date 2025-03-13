@@ -3,6 +3,7 @@ import 'upload_screen.dart';
 import 'notification_screen.dart';
 import 'profile_screen.dart';
 import 'map_screen.dart';
+import 'home_screen.dart';
 
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
   
   final List<Widget> _pages = [
+    const HomeScreen(),
     const UploadScreen(),
     const MapScreen(),
     const ProfileScreen(),
@@ -23,10 +25,12 @@ class _NavBarScreenState extends State<NavBarScreen> {
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
-        return 'Upload Documents';
+        return 'Home';
       case 1:
-        return 'Map View';
+        return 'Upload Documents';
       case 2:
+        return 'Map View';
+      case 3:
         return 'Profile';
       default:
         return 'DCF';
@@ -61,6 +65,10 @@ class _NavBarScreenState extends State<NavBarScreen> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.cloud_upload),
             label: 'Upload',
