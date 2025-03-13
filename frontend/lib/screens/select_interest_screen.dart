@@ -36,12 +36,21 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw 'No user logged in';
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
         'interests': selectedInterests.toList(),
         'interestsUpdatedAt': DateTime.now(),
       });
 
       if (mounted) {
+        // Show success dialog before navigation
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const FadeInSuccessDialog(),
+        );
         Navigator.pushReplacementNamed(context, '/navbar');
       }
     } catch (e) {
@@ -102,7 +111,8 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF57AB7D) : Colors.white,
+                        color:
+                            isSelected ? const Color(0xFF57AB7D) : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFF57AB7D)),
                         boxShadow: [
@@ -120,7 +130,9 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
                           Icon(
                             icon,
                             size: 32,
-                            color: isSelected ? Colors.white : const Color(0xFF57AB7D),
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF57AB7D),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -129,7 +141,9 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : const Color(0xFF57AB7D),
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF57AB7D),
                             ),
                           ),
                         ],
@@ -143,8 +157,8 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: selectedInterests.isNotEmpty && !_isLoading 
-                    ? _saveInterests 
+                onPressed: selectedInterests.isNotEmpty && !_isLoading
+                    ? _saveInterests
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF57AB7D),
@@ -166,6 +180,95 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class FadeInSuccessDialog extends StatefulWidget {
+  const FadeInSuccessDialog({Key? key}) : super(key: key);
+
+  @override
+  _FadeInSuccessDialogState createState() => _FadeInSuccessDialogState();
+}
+
+class _FadeInSuccessDialogState extends State<FadeInSuccessDialog>
+    with SingleTickerProviderStateMixin {
+  double _opacity = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() {
+          _opacity = 1.0;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 500),
+      opacity: _opacity,
+      curve: Curves.easeInOut,
+      child: Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: const Color(0xFF57AB7D).withOpacity(0.1),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF57AB7D),
+                  size: 50,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Great!",
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF57AB7D),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Your interests have been saved successfully",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF57AB7D),
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: Text(
+                  "Continue",
+                  style: GoogleFonts.poppins(fontSize: 16),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

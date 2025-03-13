@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../widgets/modern_app_bar.dart';
+import '../../widgets/modern_app_bar.dart'; // Add this import
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -58,39 +58,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: ModernAppBar(
-        title: 'Profile',
+        title: "Profile",
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color.fromARGB(65, 26, 126, 51),
-                  const Color.fromARGB(120, 26, 126, 51),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.settings, color: const Color.fromARGB(255, 26, 126, 51)),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () {},
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 16, left: 4),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color.fromARGB(65, 26, 126, 51),
-                  const Color.fromARGB(120, 26, 126, 51),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.more_vert, color: const Color.fromARGB(255, 26, 126, 51)),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
           ),
         ],
       ),
@@ -103,9 +79,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           final userData = snapshot.data!.data() as Map<String, dynamic>;
           final interests = (userData['interests'] as List<dynamic>?) ?? [];
+          final aboutMe = userData['aboutMe'] as String? ?? "No description provided yet.";
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16), // Added top padding
             child: Column(
               children: [
                 Center(
@@ -132,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         user?.displayName ?? '',
                         style: GoogleFonts.poppins(
@@ -140,10 +117,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      // Add About Me section
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "About Me",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF57AB7D),
+                                  ),
+                                ),
+                                Icon(Icons.edit, 
+                                    color: const Color(0xFF57AB7D),
+                                    size: 18),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              aboutMe,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // Stats
                 Row(
@@ -228,8 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children:
-                      interests.map((e) => _buildInterestChip(e.toString())).toList(),
+                  children: interests
+                      .map((e) => _buildInterestChip(e.toString()))
+                      .toList(),
                 ),
               ],
             ),
