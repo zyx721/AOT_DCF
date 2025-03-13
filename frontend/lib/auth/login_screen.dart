@@ -207,17 +207,13 @@ class _LoginScreenState extends State<LoginScreen>
 
             await saveDeviceTokenToFirestore(user.uid);
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Welcome ${user.displayName ?? user.email}'),
-                backgroundColor: Colors.green,
-              ),
-            );
+
+            // Save login state before navigation
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('isLoggedIn', true);
 
             // Check if this is the user's first time
             if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('isLoggedIn', true);
               if (mounted) {
                 Navigator.pushReplacementNamed(context, '/navbar');
               }
@@ -483,6 +479,10 @@ class _LoginScreenState extends State<LoginScreen>
           }, SetOptions(merge: true));
 
           await saveDeviceTokenToFirestore(user.uid);
+
+          // Save login state before navigation
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', true);
 
           // Navigate based on user status
           final userDoc = await FirebaseFirestore.instance

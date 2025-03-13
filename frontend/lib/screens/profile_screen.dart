@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  
+  ProfileScreen({Key? key}) : super(key: key);
 
   Future<Map<String, dynamic>?> _getUserData() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -18,8 +22,35 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .update({
+          'isConnected': false,
+          'lastSignIn': DateTime.now(),
+        });
+      }
+
+      await _googleSignIn.signOut();
+      await FirebaseAuth.instance.signOut();
+      await prefs.setBool('isLoggedIn', false);
+      // ignore: use_build_context_synchronously
+      Navigator.pushReplacementNamed(context, '/login');
+    } catch (e) {
+      print('Logout Error: $e');
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
