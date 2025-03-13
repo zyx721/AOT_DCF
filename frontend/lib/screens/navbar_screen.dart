@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'upload_screen.dart';
 import 'notification_screen.dart';
 import 'profile_screen.dart';
+import 'map_screen.dart';
 
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
   
   final List<Widget> _pages = [
     const UploadScreen(),
+    const MapScreen(),
     const NotificationScreen(),
     const ProfileScreen(),
   ];
@@ -24,10 +26,15 @@ class _NavBarScreenState extends State<NavBarScreen> {
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.cloud_upload),
             label: 'Upload',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Map',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
