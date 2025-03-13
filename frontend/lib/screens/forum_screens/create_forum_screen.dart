@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../services/drive.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateFundraisingScreen extends StatefulWidget {
   @override
@@ -183,7 +184,16 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
       await _uploadFiles();
       
       try {
-        await FirebaseFirestore.instance.collection('fundraisers').add({
+        final User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Please login first')),
+          );
+          return;
+        }
+
+        // Create fundraiser document
+        DocumentReference fundraiserRef = await FirebaseFirestore.instance.collection('fundraisers').add({
           'title': _titleController.text,
           'category': _selectedCategory,
           'donationAmount': double.parse(_donationAmountController.text),
@@ -198,6 +208,12 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
           'createdAt': FieldValue.serverTimestamp(),
           'funding': 0,
           'status': 'pending',
+          'creatorId': currentUser.uid,
+        });
+
+        // Update user's fundraisers list
+        await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).update({
+          'fundraisers': FieldValue.arrayUnion([fundraiserRef.id])
         });
         
         _showSuccessDialog();
