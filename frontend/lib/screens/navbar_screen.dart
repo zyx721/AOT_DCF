@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'Home_screen/home_screen.dart';
-import 'schedule_screen.dart';
+import 'Chatbot_screen/chatbot.dart'; // Updated import
 import 'Fundraising_screen/fundraising_screen.dart';
 import 'Chat_screen/chat_screen.dart';
 import 'Profile_screen/profile_screen.dart';
@@ -17,7 +17,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
 
   final List<Widget> _pages = [
     const HomeScreen(),
-    const ScheduleScreen(),
+    const ChatPage(), // Changed from ScheduleScreen to ChatPage
     const FundraisingScreen(),
     const ChatScreen(),
     const ProfileScreen(),
