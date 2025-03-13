@@ -565,7 +565,7 @@ class _LoginScreenState extends State<LoginScreen>
       BuildContext context, String forgotPasswordText) {
     return TextButton(
       onPressed: () {
-        Navigator.pushNamed(context, '/forgot_password');
+        Navigator.pushNamed(context, '/forgot-password');
       },
       child: Text(
         forgotPasswordText,
