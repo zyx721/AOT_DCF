@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
+
 import 'notification_screen.dart';
 import 'profile_screen.dart';
 import 'forum_screens/create_forum_screen.dart';
 import 'forum_screens/forums_screen.dart';
 import 'map_screen.dart';
+
+import 'Home_screen/home_screen.dart';
+import 'schedule_screen.dart';
+import 'Fundraising_screen/fundraising_screen.dart';
+import 'Chat_screen/chat_screen.dart';
+import 'Profile_screen/profile_screen.dart';
+
 
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
@@ -15,92 +23,81 @@ class NavBarScreen extends StatefulWidget {
 
 class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
-  
+
   final List<Widget> _pages = [
-    const MapScreen(),
-   FundraisingHomePage(),
-    const NotificationScreen(),
-     ProfileScreen(),
+    const HomeScreen(),
+    const ScheduleScreen(),
+    const FundraisingScreen(),
+    const ChatScreen(),
+    const ProfileScreen(),
   ];
+
+  Widget _buildNavItem(IconData icon, int index, String label) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF57AB7D)
+                  : const Color(0xFF57AB7D).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF57AB7D),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFF57AB7D) : Colors.grey,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CreateFundraisingScreen(),
-            ),
-          );
-        },
-        backgroundColor: Colors.deepPurple,
-        child: const Icon(Icons.add, size: 32),
-        tooltip: 'Create Forum',
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        notchMargin: 8.0,
-        shape: const CircularNotchedRectangle(),
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // Left side icons
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.map,
-                        color: _selectedIndex == 0 ? Colors.deepPurple : Colors.grey,
-                      ),
-                      onPressed: () => setState(() => _selectedIndex = 0),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.forum,
-                        color: _selectedIndex == 1 ? Colors.deepPurple : Colors.grey,
-                      ),
-                      onPressed: () => setState(() => _selectedIndex = 1),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Middle space for FAB
-              const SizedBox(width: 48.0),
-              
-              // Right side icons
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.notifications,
-                        color: _selectedIndex == 2 ? Colors.deepPurple : Colors.grey,
-                      ),
-                      onPressed: () => setState(() => _selectedIndex = 2),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.person,
-                        color: _selectedIndex == 3 ? Colors.deepPurple : Colors.grey,
-                      ),
-                      onPressed: () => setState(() => _selectedIndex = 3),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(Icons.home_rounded, 0, 'Home'),
+            _buildNavItem(Icons.calendar_month_rounded, 1, 'Schedule'),
+            _buildNavItem(Icons.volunteer_activism_rounded, 2, 'Fundraise'),
+            _buildNavItem(Icons.chat_rounded, 3, 'Chat'),
+            _buildNavItem(Icons.person_rounded, 4, 'Profile'),
+          ],
         ),
       ),
     );
