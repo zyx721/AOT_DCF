@@ -9,6 +9,8 @@ import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:frontend/services/conversation_manager.dart';
+import 'package:frontend/widgets/modern_app_bar.dart';
+import 'package:lottie/lottie.dart';  // Add this import
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -315,12 +317,11 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: ModernAppBar(
+        title: 'Chat Assistant',
         actions: [
           IconButton(
-            icon: Icon(Icons.delete_outline, color: Colors.grey),
+            icon: Icon(Icons.delete_outline, color: Colors.white),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -368,6 +369,38 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Widget _buildAvatar({required bool isUser}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [
+              Color.fromARGB(255, 26, 126, 51),
+              Color.fromARGB(120, 26, 126, 51),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: ClipOval(
+          child: isUser
+              ? Image.asset(
+                  'assets/images/profile.jpg', // Add your profile picture to assets
+                  fit: BoxFit.cover,
+                )
+              : Lottie.asset(
+                  'assets/animation/voice_wave.json',
+                  fit: BoxFit.cover,
+                ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessage(ChatMessage message) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -375,7 +408,7 @@ class _ChatPageState extends State<ChatPage> {
         mainAxisAlignment:
             message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!message.isUser) _buildAvatar(),
+          if (!message.isUser) _buildAvatar(isUser: false),
           Container(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.7,
@@ -383,9 +416,21 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: message.isUser
-                  ? AppColors.mainGradient
+                  ? const LinearGradient(
+                      colors: [
+                        Color.fromARGB(255, 26, 126, 51),
+                        Color.fromARGB(120, 26, 126, 51),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    )
                   : const LinearGradient(
-                      colors: [Colors.grey, Colors.blueGrey],
+                      colors: [
+                        Color.fromARGB(120, 26, 126, 51),
+                        Color.fromARGB(65, 26, 126, 51),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -397,18 +442,8 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-          if (message.isUser) _buildAvatar(),
+          if (message.isUser) _buildAvatar(isUser: true),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAvatar() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8),
-      child: CircleAvatar(
-        backgroundColor: Colors.deepPurple,
-        child: Icon(Icons.person, color: Colors.white),
       ),
     );
   }

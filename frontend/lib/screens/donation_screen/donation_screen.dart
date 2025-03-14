@@ -63,14 +63,16 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
 
   void _onGooglePayResult(paymentResult) {
     debugPrint('Payment Result: $paymentResult');
-    if (mounted) {  // Check if widget is still mounted
+    if (mounted) {
+      // Check if widget is still mounted
       if (paymentResult != null) {
         // Show success dialog
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('Payment Success'),
-            content: Text('Your donation of \$${_selectedAmount.toStringAsFixed(2)} was successful'),
+            content: Text(
+                'Your donation of \$${_selectedAmount.toStringAsFixed(2)} was successful'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -92,7 +94,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
       _updatePaymentItems();
       final googlePayButton = GooglePayButton(
         paymentConfiguration: PaymentConfiguration.fromJsonString(
-          await DefaultAssetBundle.of(context).loadString('assets/google_pay_config.json'),
+          await DefaultAssetBundle.of(context)
+              .loadString('assets/google_pay_config.json'),
         ),
         paymentItems: _paymentItems,
         type: GooglePayButtonType.pay,
@@ -102,7 +105,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
           child: CircularProgressIndicator(),
         ),
         onError: (error) {
-          if (mounted) {  // Check if widget is still mounted
+          if (mounted) {
+            // Check if widget is still mounted
             debugPrint('Google Pay Error: $error');
             // Only show error dialog for non-cancellation errors
             if (error.toString().toLowerCase().contains('canceled') == false) {
@@ -126,14 +130,15 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
 
       await showModalBottomSheet(
         context: context,
-        isDismissible: true,  // Allow dismissing the bottom sheet
+        isDismissible: true, // Allow dismissing the bottom sheet
         builder: (context) => Container(
           padding: EdgeInsets.all(20),
           child: googlePayButton,
         ),
       );
     } catch (e) {
-      if (mounted) {  // Check if widget is still mounted
+      if (mounted) {
+        // Check if widget is still mounted
         debugPrint('Error setting up Google Pay: $e');
         // Only show error for non-cancellation errors
         if (e.toString().toLowerCase().contains('canceled') == false) {
@@ -161,7 +166,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
       final baseUrl = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
       final params = {
         'cmd': '_donations',
-        'business': 'aotdevimpact@gmail.com', // Your PayPal sandbox business account
+        'business':
+            'aotdevimpact@gmail.com', // Your PayPal sandbox business account
         'item_name': 'Donation to DCF',
         'amount': _selectedAmount.toString(),
         'currency_code': 'USD',
@@ -182,7 +188,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: Text('Payment Success'),
-                    content: Text('Your donation of \$${_selectedAmount.toStringAsFixed(2)} was successful'),
+                    content: Text(
+                        'Your donation of \$${_selectedAmount.toStringAsFixed(2)} was successful'),
                     actions: [
                       TextButton(
                         onPressed: () {
@@ -237,7 +244,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
           children: [
             Text(
               "Enter the Amount",
-              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+              style: GoogleFonts.poppins(
+                  fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 10),
             Container(
@@ -251,10 +259,9 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
                 "\$${_selectedAmount.toStringAsFixed(0)}",
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 30, 
-                  fontWeight: FontWeight.bold, 
-                  color: const Color(0xFF57AB7D)
-                ),
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF57AB7D)),
               ),
             ),
             SizedBox(height: 15),
@@ -269,14 +276,18 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
                     decoration: BoxDecoration(
                       border: Border.all(color: const Color(0xFF57AB7D)),
                       borderRadius: BorderRadius.circular(20),
-                      color: _selectedAmount == amount ? const Color(0xFF57AB7D) : Colors.white,
+                      color: _selectedAmount == amount
+                          ? const Color(0xFF57AB7D)
+                          : Colors.white,
                     ),
                     child: Text(
                       "\$${amount.toStringAsFixed(0)}",
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: _selectedAmount == amount ? Colors.white : const Color(0xFF57AB7D),
+                        color: _selectedAmount == amount
+                            ? Colors.white
+                            : const Color(0xFF57AB7D),
                       ),
                     ),
                   ),
@@ -307,25 +318,28 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildPaymentMethodCard('assets/images/paypal.png', 'PayPal'),
-                _buildPaymentMethodCard('assets/images/google_pay.jpg', 'Google Pay'),
-                _buildPaymentMethodCard('assets/images/baridi.png', 'Baridi Pay'),
+                _buildPaymentMethodCard(
+                    'assets/images/google_pay.jpg', 'Google Pay'),
+                _buildPaymentMethodCard(
+                    'assets/images/baridi.png', 'Baridi Pay'),
               ],
             ),
             Spacer(),
             ElevatedButton(
-              onPressed: (_selectedAmount > 0 && _selectedPaymentMethod != null) 
-                ? () {
-                    if (_selectedPaymentMethod == 'Google Pay') {
-                      _handleGooglePay();
-                    } else if (_selectedPaymentMethod == 'PayPal') {
-                      _handlePayPalPayment();
+              onPressed: (_selectedAmount > 0 && _selectedPaymentMethod != null)
+                  ? () {
+                      if (_selectedPaymentMethod == 'Google Pay') {
+                        _handleGooglePay();
+                      } else if (_selectedPaymentMethod == 'PayPal') {
+                        _handlePayPalPayment();
+                      }
                     }
-                  }
-                : null,
+                  : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF57AB7D),
                 minimumSize: Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25)),
               ),
               child: Text(
                 "Continue",
