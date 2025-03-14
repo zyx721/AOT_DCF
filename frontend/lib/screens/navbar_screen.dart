@@ -1,12 +1,4 @@
 import 'package:flutter/material.dart';
-
-
-import 'notification_screen.dart';
-import 'profile_screen.dart';
-import 'forum_screens/create_forum_screen.dart';
-import 'forum_screens/forums_screen.dart';
-import 'map_screen.dart';
-
 import 'Home_screen/home_screen.dart';
 import 'schedule_screen.dart';
 import 'Fundraising_screen/fundraising_screen.dart';
@@ -25,9 +17,9 @@ class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const HomeScreen(),
+    HomeScreen(),
     const ScheduleScreen(),
-    const FundraisingScreen(),
+   FundraisingScreen(),
     const ChatScreen(),
     const ProfileScreen(),
   ];

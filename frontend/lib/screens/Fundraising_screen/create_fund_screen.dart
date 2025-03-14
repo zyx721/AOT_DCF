@@ -449,13 +449,13 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
 
   Widget _buildActionButtons() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.center,  // Changed from spaceBetween to center
       children: [
         ElevatedButton(
           onPressed: _isUploading ? null : _submitFundraiser,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
-            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),  // Increased horizontal padding
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
