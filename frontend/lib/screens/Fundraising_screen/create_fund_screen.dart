@@ -306,6 +306,8 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          labelStyle: TextStyle(color: Colors.grey[700]), // Normal label color
+          floatingLabelStyle: TextStyle(color: Colors.green), // Green color when focused
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(color: Colors.green, width: 2),
@@ -367,6 +369,8 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
         readOnly: true,
         decoration: InputDecoration(
           labelText: 'Choose Donation Expiration Date',
+          labelStyle: TextStyle(color: Colors.grey[700]), // Normal label color
+          floatingLabelStyle: TextStyle(color: Colors.green), // Green color when 
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(color: Colors.green, width: 2),
@@ -402,12 +406,17 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
 
   Widget _buildFileUploadField(String label, bool isProposal) {
     File? selectedFile = isProposal ? _proposalDoc : _additionalDoc;
+    String fileName = selectedFile != null ? selectedFile.path.split('/').last : '';
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
         readOnly: true,
+        controller: TextEditingController(text: fileName),
         decoration: InputDecoration(
           labelText: label,
+          hintText: 'No file selected',
+          labelStyle: TextStyle(color: Colors.grey[700]),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(color: Colors.green, width: 2),
@@ -421,7 +430,6 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
             borderSide: BorderSide(color: Colors.green, width: 2),
           ),
           suffixIcon: Icon(Icons.upload_file, color: Colors.green),
-          hintText: selectedFile != null ? selectedFile.path.split('/').last : 'No file selected',
         ),
         onTap: () => _pickDocument(isProposal),
       ),
