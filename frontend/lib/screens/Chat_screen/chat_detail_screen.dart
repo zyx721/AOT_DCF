@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import '../../services/drive.dart';
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -27,6 +31,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final currentUser = FirebaseAuth.instance.currentUser;
   bool _isSubmitting = false;
+  final GoogleDriveService _driveService = GoogleDriveService();
+  bool _isUploadingFile = false;
 
   @override
   void initState() {
@@ -41,8 +47,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         .update({'unreadCount': 0});
   }
 
-  Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _isSubmitting) return;
+  Future<void> _pickAndUploadFile() async {
+    try {
+      setState(() => _isUploadingFile = true);
+      
+      final result = await FilePicker.platform.pickFiles();
+      if (result == null) return;
+
+      final file = File(result.files.single.path!);
+      final fileUrl = await _driveService.uploadFile(file);
+      
+      // Send message with file
+      await _sendMessage(fileUrl: fileUrl, fileName: result.files.single.name);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload file: $e')),
+      );
+    } finally {
+      setState(() => _isUploadingFile = false);
+    }
+  }
+
+  Future<void> _sendMessage({String? fileUrl, String? fileName}) async {
+    if ((_messageController.text.trim().isEmpty && fileUrl == null) || _isSubmitting) return;
 
     setState(() => _isSubmitting = true);
 
@@ -58,13 +85,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'senderId': currentUser?.uid,
         'message': message,
         'timestamp': timestamp,
+        'fileUrl': fileUrl,
+        'fileName': fileName,
       });
 
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
           .update({
-        'lastMessage': message,
+        'lastMessage': fileUrl != null ? '📎 File: $fileName' : message,
         'lastMessageTime': timestamp,
         'unreadCount': FieldValue.increment(1),
       });
@@ -110,7 +139,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Stack(
                   children: [
                     CircleAvatar(
-                      backgroundImage: const AssetImage('assets/images/profile.jpg'),
+                      backgroundImage: widget.imageUrl.isNotEmpty
+                          ? NetworkImage(widget.imageUrl)
+                          : null,
+                      backgroundColor: Colors.grey[200],
+                      child: widget.imageUrl.isEmpty
+                          ? Icon(Icons.person, color: Colors.grey[400])
+                          : null,
                       radius: 20,
                     ),
                     if (widget.isOnline)
@@ -121,7 +156,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           width: 12,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.green,
                             border: Border.all(color: Colors.white, width: 2),
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -134,7 +169,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   widget.name,
                   style: GoogleFonts.poppins(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -201,9 +236,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     final isMe = message['senderId'] == currentUser?.uid;
 
                     return buildMessage(
-                      message['message'],
+                      message['message'] ?? '',
                       isMe,
                       message['timestamp'] as Timestamp?,
+                      fileUrl: message['fileUrl'],
+                      fileName: message['fileName'],
                     );
                   },
                 );
@@ -226,9 +263,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.attach_file,
-                      color: const Color(0xFF57AB7D).withOpacity(0.6)),
-                  onPressed: () {},
+                  icon: _isUploadingFile
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.attach_file, color: const Color(0xFF57AB7D).withOpacity(0.6)),
+                  onPressed: _isUploadingFile ? null : _pickAndUploadFile,
                 ),
                 Expanded(
                   child: TextField(
@@ -294,7 +336,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget buildMessage(String text, bool isMe, Timestamp? timestamp) {
+  Widget buildMessage(String text, bool isMe, Timestamp? timestamp, {String? fileUrl, String? fileName}) {
+    Future<void> _launchUrl(String url) async {
+      final uri = Uri.parse(url);
+      if (await url_launcher.canLaunchUrl(uri)) {
+        await url_launcher.launchUrl(uri);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file')),
+        );
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Align(
@@ -332,16 +385,43 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ],
           ),
           child: Column(
-            crossAxisAlignment:
-                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              Text(
-                text,
-                style: GoogleFonts.poppins(
-                  color: isMe ? Colors.white : Colors.black87,
-                  fontSize: 14,
+              if (fileUrl != null) ...[
+                GestureDetector(
+                  onTap: () => _launchUrl(fileUrl),
+                  child: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attachment, size: 20),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            fileName ?? 'File',
+                            style: GoogleFonts.poppins(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                SizedBox(height: 4),
+              ],
+              if (text.isNotEmpty)
+                Text(
+                  text,
+                  style: GoogleFonts.poppins(
+                    color: isMe ? Colors.white : Colors.black87,
+                    fontSize: 14,
+                  ),
+                ),
               if (isMe)
                 Icon(
                   Icons.done_all,
