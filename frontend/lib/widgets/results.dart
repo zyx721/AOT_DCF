@@ -12,7 +12,6 @@ void showFundraisingDialog(BuildContext context, Map<String, dynamic> fundraiser
   final double progressPercentage = targetAmount > 0 
       ? (funding / targetAmount * 100).clamp(0.0, 100.0) 
       : 0.0;
-  final int prayers = (fundraiser['prayers'] ?? 0);
   final double fundsLeft = targetAmount - funding;
 
   showDialog(
@@ -33,38 +32,52 @@ void showFundraisingDialog(BuildContext context, Map<String, dynamic> fundraiser
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 16),
-                GridView.count(
-                  shrinkWrap: true,
-                  crossAxisCount: 2,
-                  childAspectRatio: 2.5,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  children: [
-                    _buildStatCard(
-                      '\$${NumberFormat('#,##0.00').format(funding)}',
-                      'Funds gained'
-                    ),
-                    _buildStatCard(
-                      '\$${NumberFormat('#,##0.00').format(fundsLeft)}',
-                      'Funds left'
-                    ),
-                    _buildStatCard(
-                      NumberFormat('#,##0').format(donators),
-                      'Donators'
-                    ),
-                    _buildStatCard(
-                      daysLeft.toString(),
-                      'Days left'
-                    ),
-                    _buildStatCard(
-                      '${progressPercentage.toStringAsFixed(1)}%',
-                      'Funds reached'
-                    ),
-                    _buildStatCard(
-                      NumberFormat('#,##0').format(prayers),
-                      'Prayers'
-                    ),
-                  ],
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('fundraisers')
+                      .doc(fundraiser['id'])
+                      .collection('prayers')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    int prayersCount = 0;
+                    if (snapshot.hasData) {
+                      prayersCount = snapshot.data!.docs.length;
+                    }
+
+                    return GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      children: [
+                        _buildStatCard(
+                          '\$${NumberFormat('#,##0.00').format(funding)}',
+                          'Funds gained'
+                        ),
+                        _buildStatCard(
+                          '\$${NumberFormat('#,##0.00').format(fundsLeft)}',
+                          'Funds left'
+                        ),
+                        _buildStatCard(
+                          NumberFormat('#,##0').format(donators),
+                          'Donators'
+                        ),
+                        _buildStatCard(
+                          daysLeft.toString(),
+                          'Days left'
+                        ),
+                        _buildStatCard(
+                          '${progressPercentage.toStringAsFixed(1)}%',
+                          'Funds reached'
+                        ),
+                        _buildStatCard(
+                          NumberFormat('#,##0').format(prayersCount),
+                          'Prayers'
+                        ),
+                      ],
+                    );
+                  }
                 ),
                 SizedBox(height: 16),
                 if (funding > 0)
