@@ -77,15 +77,13 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _conversationHistory = ConversationManager.history;
         _messages.clear();
-        for (var msg in _conversationHistory) {
-          _messages.insert(
-            0,
-            ChatMessage(
-              text: msg['text'],
-              isUser: msg['isUser'],
-              timestamp: DateTime.parse(msg['timestamp']),
-            ),
-          );
+        // Only add messages once from the history
+        for (var msg in _conversationHistory.reversed) {
+          _messages.add(ChatMessage(
+            text: msg['text'],
+            isUser: msg['isUser'],
+            timestamp: DateTime.parse(msg['timestamp']),
+          ));
         }
       });
     }
@@ -125,21 +123,13 @@ class _ChatPageState extends State<ChatPage> {
             final data = json.decode(message);
             if (data['type'] == 'response') {
               if (mounted) {
-                setState(() {
-                  _messages.insert(
-                    0,
-                    ChatMessage(
-                      text: data['text'],
-                      isUser: false,
-                      timestamp: DateTime.now(),
-                    ),
-                  );
-                  _conversationHistory.add({
-                    'text': data['text'],
-                    'isUser': false,
-                    'timestamp': DateTime.now().toIso8601String(),
-                  });
-                });
+                // Remove direct message insertion here and only use ConversationManager
+                final botMessage = {
+                  'text': data['text'],
+                  'isUser': false,
+                  'timestamp': DateTime.now().toIso8601String(),
+                };
+                ConversationManager.addMessage(botMessage);
               }
             }
           } catch (e) {
@@ -194,16 +184,13 @@ class _ChatPageState extends State<ChatPage> {
           if (result.finalResult) {
             final recognizedText = result.recognizedWords;
             if (recognizedText.isNotEmpty) {
-              setState(() {
-                _messages.insert(
-                  0,
-                  ChatMessage(
-                    text: recognizedText,
-                    isUser: true,
-                    timestamp: DateTime.now(),
-                  ),
-                );
-              });
+              // Remove direct message insertion and only use ConversationManager
+              final userMessage = {
+                'text': recognizedText,
+                'isUser': true,
+                'timestamp': DateTime.now().toIso8601String(),
+              };
+              ConversationManager.addMessage(userMessage);
 
               channel.sink.add(json.encode({
                 'type': 'text',
@@ -243,18 +230,9 @@ class _ChatPageState extends State<ChatPage> {
       'timestamp': DateTime.now().toIso8601String(),
     };
 
-    setState(() {
-      _messages.insert(
-          0,
-          ChatMessage(
-            text: text,
-            isUser: true,
-            timestamp: DateTime.now(),
-          ));
-      _conversationHistory.add(userMessage);
-      ConversationManager.addMessage(userMessage);
-      _isGeneratingResponse = true;
-    });
+    // Only use ConversationManager to handle messages
+    ConversationManager.addMessage(userMessage);
+    setState(() => _isGeneratingResponse = true);
 
     try {
       final contextPrompt = ConversationManager.getContextPrompt();
@@ -272,40 +250,19 @@ class _ChatPageState extends State<ChatPage> {
       };
 
       if (mounted) {
-        setState(() {
-          _messages.insert(
-              0,
-              ChatMessage(
-                text: responseText,
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
-          _conversationHistory.add(botMessage);
-          ConversationManager.addMessage(botMessage);
-          _isGeneratingResponse = false;
-        });
+        ConversationManager.addMessage(botMessage);
+        setState(() => _isGeneratingResponse = false);
       }
     } catch (e) {
       print('Error generating response: $e');
       if (mounted) {
-        setState(() {
-          _isGeneratingResponse = false;
-          // Add error message to conversation and save immediately
-          final errorMessage = {
-            'text': 'Sorry, I encountered an error. Please try again.',
-            'isUser': false,
-            'timestamp': DateTime.now().toIso8601String(),
-          };
-          _messages.insert(
-              0,
-              ChatMessage(
-                text: errorMessage['text'] as String,
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
-          _conversationHistory.add(errorMessage);
-          ConversationManager.addMessage(errorMessage);
-        });
+        setState(() => _isGeneratingResponse = false);
+        final errorMessage = {
+          'text': 'Sorry, I encountered an error. Please try again.',
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        };
+        ConversationManager.addMessage(errorMessage);
       }
     }
   }
@@ -324,23 +281,14 @@ class _ChatPageState extends State<ChatPage> {
     );
 
     if (result != null && result is List<Map<String, dynamic>> && mounted) {
-      setState(() {
-        for (final message in result) {
-          if (!_conversationHistory.any((m) =>
-              m['timestamp'] == message['timestamp'] &&
-              m['text'] == message['text'])) {
-            _conversationHistory.add(message);
-            _messages.insert(
-              0,
-              ChatMessage(
-                text: message['text'],
-                isUser: message['isUser'],
-                timestamp: DateTime.parse(message['timestamp']),
-              ),
-            );
-          }
+      // Let ConversationManager handle the messages
+      for (final message in result) {
+        if (!_conversationHistory.any((m) =>
+            m['timestamp'] == message['timestamp'] &&
+            m['text'] == message['text'])) {
+          ConversationManager.addMessage(message);
         }
-      });
+      }
     }
   }
 
@@ -382,19 +330,70 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                return _buildMessage(_messages[index]);
-              },
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+              Color.fromARGB(255, 26, 126, 51).withOpacity(0.05),
+            ],
           ),
-          _buildMessageInput(),
-        ],
+        ),
+        child: Stack(
+          children: [
+            // Add decorative shapes
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.2),
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              left: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.15),
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.05),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    reverse: true,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildMessage(_messages[index]);
+                    },
+                  ),
+                ),
+                _buildMessageInput(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/payment/baridi_payment_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -225,6 +226,38 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
     }
   }
 
+  Future<void> _handleBaridiPayment() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BaridiPaymentScreen(
+          amount: _selectedAmount,
+          orderNumber: 'DCF${DateTime.now().millisecondsSinceEpoch}',
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Payment Success'),
+          content: Text(
+              'Your donation of \$${_selectedAmount.toStringAsFixed(2)} was successful'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop(); // Go back to previous screen
+              },
+              child: Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -332,6 +365,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
                         _handleGooglePay();
                       } else if (_selectedPaymentMethod == 'PayPal') {
                         _handlePayPalPayment();
+                      } else if (_selectedPaymentMethod == 'Baridi Pay') {
+                        _handleBaridiPayment();
                       }
                     }
                   : null,
