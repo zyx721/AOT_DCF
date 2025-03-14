@@ -91,10 +91,6 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const ModernAppBar(
-        title: 'Map',
-        showLogo: true,
-      ),
       body: FlutterMap(
         options: MapOptions(
           center: LatLng(36.7528, 3.0422), // Example: Algiers
