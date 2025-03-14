@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/donation_screen/donation_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/modern_app_bar.dart'; // Add this import
+import '../../mixins/lifecycle_mixin.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -11,7 +13,7 @@ class ProfileScreen extends StatefulWidget {
   _ProfileScreenState createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with LifecycleMixin {
   final user = FirebaseAuth.instance.currentUser;
   final firestore = FirebaseFirestore.instance;
 
@@ -191,45 +193,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           elevation: 2,
                           child: Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
                               children: [
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Icon(Icons.account_balance_wallet,
-                                        color: const Color(0xFF57AB7D)),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    Row(
                                       children: [
-                                        Text(
-                                          "\$0",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          "My wallet balance",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
+                                        Icon(Icons.account_balance_wallet,
+                                            color: const Color(0xFF57AB7D)),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              "\$0",
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              "My wallet balance",
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
+                                    ElevatedButton(
+                                      onPressed: () {},
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF57AB7D),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(30),
+                                        ),
+                                      ),
+                                      child: Text("Top up",
+                                          style: GoogleFonts.poppins(color: Colors.white)),
+                                    ),
                                   ],
                                 ),
+                                SizedBox(height: 10),
                                 ElevatedButton(
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => DonationScreen()),
+                                    );
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF57AB7D),
+                                    minimumSize: Size(double.infinity, 40),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                   ),
-                                  child: Text("Top up",
-                                      style: GoogleFonts.poppins(color: Colors.white)),
+                                  child: Text(
+                                    "Make a Donation",
+                                    style: GoogleFonts.poppins(color: Colors.white),
+                                  ),
                                 ),
                               ],
                             ),

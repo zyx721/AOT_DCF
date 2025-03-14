@@ -7,6 +7,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:frontend/services/conversation_manager.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -24,13 +26,43 @@ class _ChatPageState extends State<ChatPage> {
   final audioPlayer = AudioPlayer();
   bool _isProcessing = false; // Add this flag to prevent overlapping
   late Stream broadcastStream;
+  List<Map<String, dynamic>> _conversationHistory = []; // Add this line
+  late final genai.GenerativeModel model;
+  bool _isGeneratingResponse = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    await ConversationManager.initialize();
+    await _loadConversationHistory();
     _initializeSpeech();
     _connectWebSocket();
     _setupAudioPlayerListeners();
+    _initializeGemini();
+  }
+
+  Future<void> _loadConversationHistory() async {
+    await ConversationManager.loadHistory();
+    if (mounted) {
+      setState(() {
+        _conversationHistory = ConversationManager.history;
+        _messages.clear();
+        for (var msg in _conversationHistory) {
+          _messages.insert(
+            0,
+            ChatMessage(
+              text: msg['text'],
+              isUser: msg['isUser'],
+              timestamp: DateTime.parse(msg['timestamp']),
+            ),
+          );
+        }
+      });
+    }
   }
 
   void _initializeSpeech() async {
@@ -50,40 +82,66 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _connectWebSocket() {
-    channel = WebSocketChannel.connect(
-      Uri.parse('ws://10.222.202.216:8000/ws'),
-    );
-    
-    // Create a broadcast stream
-    broadcastStream = channel.stream.asBroadcastStream();
+    try {
+      channel = WebSocketChannel.connect(
+        Uri.parse('ws://10.222.202.216:8000/ws'),
+      );
 
-    broadcastStream.listen((message) async {
-      if (_isProcessing) return; // Prevent multiple processing
-      _isProcessing = true;
+      broadcastStream = channel.stream.asBroadcastStream();
 
-      final data = json.decode(message);
-      if (data['type'] == 'response') {
-        setState(() {
-          _messages.insert(
-            0,
-            ChatMessage(
-              text: data['text'],
-              isUser: false,
-              timestamp: DateTime.now(),
-            ),
-          );
-        });
-      } else if (data['type'] == 'audio') {
-        _stopListening(); // Stop listening while playing audio
-        try {
-          await audioPlayer.setUrl(data['audio_url']);
-          await audioPlayer.play();
-        } catch (e) {
-          print('Error playing audio: $e');
-          _startListening(); // Start listening if audio fails
-        }
+      broadcastStream.listen(
+        (message) async {
+          _logMessage('Received message: $message');
+          if (_isProcessing) return;
+          _isProcessing = true;
+
+          try {
+            final data = json.decode(message);
+            if (data['type'] == 'response') {
+              if (mounted) {
+                setState(() {
+                  _messages.insert(
+                    0,
+                    ChatMessage(
+                      text: data['text'],
+                      isUser: false,
+                      timestamp: DateTime.now(),
+                    ),
+                  );
+                  _conversationHistory.add({
+                    'text': data['text'],
+                    'isUser': false,
+                    'timestamp': DateTime.now().toIso8601String(),
+                  });
+                });
+              }
+            }
+          } catch (e) {
+            print('Error processing message: $e');
+          } finally {
+            _isProcessing = false;
+          }
+        },
+        onError: (error) {
+          print('WebSocket error: $error');
+          _reconnectWebSocket();
+        },
+        onDone: () {
+          print('WebSocket connection closed');
+          _reconnectWebSocket();
+        },
+      );
+    } catch (e) {
+      print('Error connecting to WebSocket: $e');
+      _reconnectWebSocket();
+    }
+  }
+
+  void _reconnectWebSocket() {
+    Future.delayed(Duration(seconds: 2), () {
+      if (mounted) {
+        _connectWebSocket();
       }
-      _isProcessing = false;
     });
   }
 
@@ -143,9 +201,21 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _isListening = false);
   }
 
-  void _handleSubmitted(String text) async {
+  void _initializeGemini() {
+    model = genai.GenerativeModel(
+        model: 'models/gemini-2.0-flash',
+        apiKey: 'AIzaSyDjsiA8U72-Zqt3xD4cEUHW8V5NooY6Y2A');
+  }
+
+  Future<void> _handleSubmitted(String text) async {
     _messageController.clear();
     if (text.trim().isEmpty) return;
+
+    final userMessage = {
+      'text': text,
+      'isUser': true,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
 
     setState(() {
       _messages.insert(
@@ -155,84 +225,132 @@ class _ChatPageState extends State<ChatPage> {
             isUser: true,
             timestamp: DateTime.now(),
           ));
+      _conversationHistory.add(userMessage);
+      ConversationManager.addMessage(userMessage);
+      _isGeneratingResponse = true;
     });
 
     try {
-      final Uri url = Uri.parse(
-          'http://10.156.140.216:8000/chat'); // Correct server address
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'user_id': '12345', // Add user_id
-          'query': text
-        }),
-      );
+      // Include full context in prompt
+      final contextPrompt = ConversationManager.getContextPrompt();
+      final prompt = contextPrompt + "\nUser: " + text;
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
+      final content = [genai.Content.text(prompt)];
+      final response = await model.generateContent(content);
+      final responseText =
+          response.text ?? "Sorry, I couldn't generate a response";
+
+      final botMessage = {
+        'text': responseText,
+        'isUser': false,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      if (mounted) {
         setState(() {
           _messages.insert(
               0,
               ChatMessage(
-                text: data['response'],
+                text: responseText,
                 isUser: false,
                 timestamp: DateTime.now(),
               ));
-        });
-      } else {
-        setState(() {
-          _messages.insert(
-              0,
-              ChatMessage(
-                text: 'Error: ${response.statusCode}',
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
+          _conversationHistory.add(botMessage);
+          ConversationManager.addMessage(botMessage);
+          _isGeneratingResponse = false;
         });
       }
     } catch (e) {
-      setState(() {
-        _messages.insert(
+      print('Error generating response: $e');
+      if (mounted) {
+        setState(() {
+          _messages.insert(
             0,
             ChatMessage(
-              text: 'Connection error: $e',
+              text: 'Sorry, I encountered an error. Please try again.',
               isUser: false,
               timestamp: DateTime.now(),
-            ));
-      });
+            ),
+          );
+          _isGeneratingResponse = false;
+        });
+      }
     }
   }
 
-  void _openVoiceChatScreen() {
-    Navigator.push(
+  void _openVoiceChatScreen() async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VoiceChatScreen(
           channel: channel,
-          messageStream: broadcastStream, // Pass the broadcast stream
-          onConversationComplete: (conversation) {
-            for (final message in conversation) {
-              setState(() {
-                _messages.insert(
-                  0,
-                  ChatMessage(
-                    text: message['text'],
-                    isUser: message['isUser'],
-                    timestamp: DateTime.parse(message['timestamp']),
-                  ),
-                );
-              });
-            }
-          },
+          messageStream: broadcastStream,
+          onConversationComplete: (conversation) {},
+          initialConversation: _conversationHistory,
         ),
       ),
     );
+
+    if (result != null && result is List<Map<String, dynamic>> && mounted) {
+      setState(() {
+        for (final message in result) {
+          if (!_conversationHistory.any((m) =>
+              m['timestamp'] == message['timestamp'] &&
+              m['text'] == message['text'])) {
+            _conversationHistory.add(message);
+            _messages.insert(
+              0,
+              ChatMessage(
+                text: message['text'],
+                isUser: message['isUser'],
+                timestamp: DateTime.parse(message['timestamp']),
+              ),
+            );
+          }
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: Colors.grey),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Clear History'),
+                  content: Text('Are you sure you want to clear all messages?'),
+                  actions: [
+                    TextButton(
+                      child: Text('Cancel'),
+                      onPressed: () => Navigator.pop(context, false),
+                    ),
+                    TextButton(
+                      child: Text('Clear'),
+                      onPressed: () => Navigator.pop(context, true),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await ConversationManager.clearHistory();
+                setState(() {
+                  _messages.clear();
+                  _conversationHistory.clear();
+                });
+              }
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
@@ -318,8 +436,11 @@ class _ChatPageState extends State<ChatPage> {
           Expanded(
             child: TextField(
               controller: _messageController,
+              enabled: !_isGeneratingResponse,
               decoration: InputDecoration(
-                hintText: 'Type a message...',
+                hintText: _isGeneratingResponse
+                    ? 'Generating response...'
+                    : 'Type a message...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25),
                   borderSide: BorderSide.none,
@@ -327,12 +448,15 @@ class _ChatPageState extends State<ChatPage> {
                 fillColor: Colors.grey[100],
                 filled: true,
               ),
+              onSubmitted: _handleSubmitted,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.send),
-            onPressed: () => _handleSubmitted(_messageController.text),
-            color: Colors.deepPurple,
+            onPressed: _isGeneratingResponse
+                ? null
+                : () => _handleSubmitted(_messageController.text),
+            color: _isGeneratingResponse ? Colors.grey : Colors.deepPurple,
           ),
         ],
       ),
@@ -341,10 +465,14 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
-    _speech.stop();
+    _messageController.dispose();
     channel.sink.close();
     audioPlayer.dispose();
     super.dispose();
+  }
+
+  void _logMessage(String message) {
+    print('${DateTime.now()}: $message');
   }
 }
 

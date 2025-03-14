@@ -19,7 +19,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -55,6 +56,10 @@ dependencies:
   speech_to_text: ^7.0.0
   flutter_tts: ^3.8.5
   google_generative_ai: ^0.2.0  # Corrected package name from google_generativeai
+  pay: ^1.1.2  # Add payment package
+  url_launcher: ^6.2.4  # For launching payment URLs
+  webview_flutter: ^4.7.0  # Add this for PayPal web view
+  flutter_paypal: ^0.2.1
 
 dev_dependencies:
   flutter_test:
@@ -81,7 +86,11 @@ flutter:
    - assets/credentials/
    - assets/images/mini_logo.png
    - assets/images/profile.jpg
+   - assets/images/google_pay.jpg
+   - assets/images/paypal.png
+   - assets/images/baridi.png
    - assets/animation/
+   - assets/google_pay_config.json
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
   # For details regarding adding assets from package dependencies, see

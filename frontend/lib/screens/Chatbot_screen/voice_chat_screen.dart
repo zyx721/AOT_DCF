@@ -7,17 +7,20 @@ import 'package:lottie/lottie.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
+import 'package:frontend/services/conversation_manager.dart';
 
 class VoiceChatScreen extends StatefulWidget {
   final WebSocketChannel channel;
   final Stream messageStream;
   final Function(List<Map<String, dynamic>>) onConversationComplete;
+  final List<Map<String, dynamic>> initialConversation; // Add this line
 
   const VoiceChatScreen({
     Key? key,
     required this.channel,
     required this.messageStream,
     required this.onConversationComplete,
+    this.initialConversation = const [], // Add this parameter
   }) : super(key: key);
 
   @override
@@ -41,6 +44,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   @override
   void initState() {
     super.initState();
+    _loadConversationHistory();
+    // Initialize conversation with existing history
+    _conversation = List.from(widget.initialConversation);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeSpeech();
       await _initializeTts();
@@ -52,6 +59,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
       Future.delayed(Duration(milliseconds: 500), _startListening);
       _setupMessageListener();
     });
+  }
+
+  void _loadConversationHistory() {
+    _conversation = List.from(ConversationManager.history);
   }
 
   void _initializeGemini() {
@@ -73,20 +84,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
           await flutterTts.setEngine(engines.first);
         }
         
-        // Get available voices and set a natural sounding voice
-        var voices = await flutterTts.getVoices;
-        _logMessage('Available voices: $voices');
+        await flutterTts.setLanguage("en-US");
+        await flutterTts.setPitch(1.0);
+        await flutterTts.setSpeechRate(0.5);
+        await flutterTts.setVolume(1.0);
         
-        // Try to set a high-quality voice
-        await flutterTts.setVoice({
-          "name": "en-us-x-iom-local",  // High-quality US English voice
-          "locale": "en-US"
-        });
-
-        // Fine-tune the voice parameters
-        await flutterTts.setPitch(1.0);     // Natural pitch
-        await flutterTts.setSpeechRate(0.5); // Slower, more natural pace
-        await flutterTts.setVolume(1.0);    // Full volume
+        // Try different voice options
+        try {
+          await flutterTts.setVoice({
+            "name": "en-us-x-tpf-local",
+            "locale": "en-US"
+          });
+        } catch (e) {
+          _logMessage('Failed to set specific voice, using default', isError: true);
+        }
       } else if (Platform.isIOS) {
         await flutterTts.setSharedInstance(true);
         await flutterTts.setIosAudioCategory(
@@ -163,6 +174,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
 
   void _saveConversationToHistory(Map<String, dynamic> message) {
     _conversation.add(message);
+    ConversationManager.addMessage(message);
     // Print conversation for debugging
     _logMessage(
         '${message['isUser'] ? "User" : "Bot"}: ${message['text']}\nTimestamp: ${message['timestamp']}');
@@ -187,11 +199,27 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
 
     try {
       _logMessage('Generating response for: $text');
-      // Create proper content for Gemini
-      final content = [genai.Content.text(text)];
+      
+      // Build conversation history prompt
+      final contextPrompt = ConversationManager.getContextPrompt();
+      var conversationContext = StringBuffer(contextPrompt);
+      conversationContext.writeln('\nPrevious conversation:');
+      
+      // Add last few messages for context
+      final recentMessages = _conversation.reversed.take(5).toList().reversed;
+      for (var msg in recentMessages) {
+        conversationContext.writeln('${msg['isUser'] ? 'User' : 'Assistant'}: ${msg['text']}');
+      }
+      
+      // Add current message
+      conversationContext.writeln('User: $text');
+      
+      _logMessage('Using conversation context: ${conversationContext.toString()}');
+      
+      // Create content with full context
+      final content = [genai.Content.text(conversationContext.toString())];
       final response = await model.generateContent(content);
-      final responseText =
-          response.text ?? "Sorry, I couldn't generate a response";
+      final responseText = response.text ?? "Sorry, I couldn't generate a response";
       _logMessage('Received response: $responseText');
 
       final botMessage = {
@@ -235,36 +263,47 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
         _isPlaying = true;
         _isProcessing = false;
         _isListening = false;
-        _canInterrupt = true;  // Allow interruption when speaking
       });
 
-      // Clean up the text for better speech
+      // Wait for any previous speech to finish
+      await flutterTts.stop();
+      await Future.delayed(Duration(milliseconds: 300));
+
+      // Configure TTS for complete utterance
+      flutterTts.setCompletionHandler(() {
+        _logMessage('TTS Completed Speaking');
+        setState(() {
+          _isPlaying = false;
+          _isProcessing = false;
+        });
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (!_isGeneratingResponse && !_isProcessing) {
+            _startListening();
+          }
+        });
+      });
+
+      // Prepare the text
       String cleanedText = text
           .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+          .trim()
+          // Mark sentence boundaries
 
-      // Split into natural phrases
-      List<String> phrases = cleanedText.split(RegExp(r'[,;.!?]+\s*'));
+          .split('|')  // Split into sentences
+          .where((s) => s.trim().isNotEmpty)  // Remove empty sentences
+          .join('. ');  // Rejoin with proper spacing
+
+      _logMessage('Speaking text: $cleanedText');
       
-      for (String phrase in phrases) {
-        if (phrase.trim().isEmpty) continue;
-
-        // Check if we've been interrupted
-        if (!_isPlaying) {
-          _logMessage('Speech interrupted');
-          break;
-        }
-
-        _logMessage('Speaking phrase: $phrase');
-        var result = await flutterTts.speak(phrase.trim());
-
-        if (result != 1) {
-          _logMessage('TTS speak failed for phrase: $phrase', isError: true);
-          continue;
-        }
-
-        // Wait for completion or interruption
-        await Future.delayed(Duration(milliseconds: 500));
+      // Speak the entire text at once
+      var result = await flutterTts.speak(cleanedText);
+      
+      if (result != 1) {
+        _logMessage('TTS speak failed', isError: true);
+        setState(() {
+          _isPlaying = false;
+          _isProcessing = false;
+        });
       }
     } catch (e) {
       _logMessage('TTS speak error: $e', isError: true);
@@ -272,6 +311,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
         _isPlaying = false;
         _isProcessing = false;
       });
+    }
+  }
+
+  Future<void> _handleManualInterruption() async {
+    if (_isPlaying) {
+      _logMessage('Manual interruption by user');
+      await flutterTts.stop();
+      setState(() {
+        _isPlaying = false;
+        _isProcessing = false;
+      });
+      _startListening();
     }
   }
 
@@ -307,27 +358,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
         setState(() {
           _soundLevel = level.clamp(0.0, 10.0);
         });
-        // Optionally interrupt on sound detection
-        if (_isPlaying && level > 2.0) {  // Adjust threshold as needed
-          _handleInterruption();
-        }
       },
     );
     
     setState(() => _isListening = true);
     _logMessage('Started listening');
-  }
-
-  Future<void> _handleInterruption() async {
-    if (_isPlaying) {
-      _logMessage('User interrupted the bot');
-      await flutterTts.stop();
-      setState(() {
-        _isPlaying = false;
-        _isProcessing = false;
-      });
-      _startListening();
-    }
   }
 
   void _setupMessageListener() {
@@ -416,7 +451,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
         ),
       ),
       body: GestureDetector(
-        onTapDown: (_) => _handleInterruption(),
+        onTapDown: (_) => _handleManualInterruption(),
         behavior: HitTestBehavior.translucent,
         child: Stack(
           children: [
@@ -478,6 +513,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
 
   @override
   void dispose() {
+    // Update shared history before disposing
+    ConversationManager.updateHistory(_conversation);
     flutterTts.stop();
     _logMessage('Stopping TTS and cleaning up');
     _logMessage('Conversation history:');

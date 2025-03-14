@@ -29,6 +29,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled true  // Add this line
+    }
+
+    dexOptions {
+        javaMaxHeapSize "4g"
+        preDexLibraries true
     }
 
     buildTypes {
@@ -44,3 +50,10 @@ flutter {
     source = "../.."
 }
 apply plugin: 'com.google.gms.google-services'
+
+dependencies {
+    implementation 'com.google.android.gms:play-services-wallet:19.2.1'
+    implementation 'com.google.android.gms:play-services-pay:16.1.0'
+    implementation 'com.stripe:stripe-android:20.38.0'  // Add Stripe
+    implementation 'androidx.multidex:multidex:2.0.1'  // Add this line
+}
