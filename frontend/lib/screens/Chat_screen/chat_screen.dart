@@ -556,20 +556,31 @@ class _UserSearchDialogState extends State<UserSearchDialog> {
                                   children: [
                                     ElevatedButton(
                                       onPressed: () async {
-                                        final userRef = FirebaseFirestore.instance
-                                            .collection('users')
-                                            .doc(currentUser?.uid);
-                                        
-                                        if (isFollowing) {
-                                          await userRef.update({
-                                            'following': FieldValue.arrayRemove([userData['uid']])
-                                          });
-                                        } else {
-                                          await userRef.update({
-                                            'following': FieldValue.arrayUnion([userData['uid']])
-                                          });
-                                        }
-                                      },
+                                final userRef = FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(currentUser?.uid);
+                                final otherUserRef = FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(userData['uid']);
+                                
+                                if (isFollowing) {
+                                  // Remove from following and followers lists
+                                  await userRef.update({
+                                    'following': FieldValue.arrayRemove([userData['uid']])
+                                  });
+                                  await otherUserRef.update({
+                                    'followers': FieldValue.arrayRemove([currentUser?.uid])
+                                  });
+                                } else {
+                                  // Add to following and followers lists
+                                  await userRef.update({
+                                    'following': FieldValue.arrayUnion([userData['uid']])
+                                  });
+                                  await otherUserRef.update({
+                                    'followers': FieldValue.arrayUnion([currentUser?.uid])
+                                  });
+                                }
+                              },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: isFollowing 
                                             ? Colors.grey.shade100
