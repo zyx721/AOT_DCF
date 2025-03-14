@@ -142,10 +142,10 @@ class _MapScreenState extends State<MapScreen> {
       return LatLng(36.7528, 3.0422); // Default location
     }
 
-    // Generate random offset between -0.01 and 0.01 (roughly 1km)
+    // Generate random offset between -0.05 and 0.05 (roughly 5km)
     final random = math.Random();
-    final latOffset = (random.nextDouble() - 0.5) * 0.02;
-    final lngOffset = (random.nextDouble() - 0.5) * 0.02;
+    final latOffset = (random.nextDouble() - 0.5) * 0.1;
+    final lngOffset = (random.nextDouble() - 0.5) * 0.1;
 
     return LatLng(
       baseLocation.latitude + latOffset,
@@ -336,34 +336,54 @@ class _MapScreenState extends State<MapScreen> {
   IconData _getMarkerIcon(String type) {
     switch (type) {
       case 'food_bank':
-        return FontAwesomeIcons.bowlFood;
+        return FontAwesomeIcons.bowlRice; // Food donation icon
       case 'clothing':
-        return FontAwesomeIcons.shirt;
-      case 'shelter':
-        return FontAwesomeIcons.house;
+        return FontAwesomeIcons.personDress; // Clothing donation icon
+      case 'volunteer':
+        return FontAwesomeIcons.handshakeAngle; // Volunteering help icon
       case 'education':
-        return FontAwesomeIcons.graduationCap;
+        return FontAwesomeIcons.bookOpen; // Education support icon
       case 'medical':
-        return FontAwesomeIcons.briefcaseMedical;
-      case 'elderly':
-        return FontAwesomeIcons.personCane;
-      case 'children':
-        return FontAwesomeIcons.children;
+        return FontAwesomeIcons.staffSnake; // Medical assistance icon
+      case 'organization':
+        return FontAwesomeIcons.peopleGroup; // Organization management icon
+      case 'fundraising':
+        return FontAwesomeIcons.circleDollarToSlot; // Fundraising icon
+      case 'events':
+        return FontAwesomeIcons.calendar; // Event organization icon
+      case 'logistics':
+        return FontAwesomeIcons.truck; // Transportation/logistics icon
+      case 'tech_support':
+        return FontAwesomeIcons.laptopCode; // Technical support icon
       default:
-        return FontAwesomeIcons.handshakeAngle;
+        return FontAwesomeIcons.handHoldingHeart; // General help icon
     }
   }
 
   Color _getMarkerColor(String type) {
     switch (type) {
       case 'food_bank':
-        return Colors.orange;
+        return const Color(0xFFFF9800); // Orange
       case 'clothing':
-        return Colors.purple;
-      case 'shelter':
-        return Colors.green;
+        return const Color(0xFF9C27B0); // Purple
+      case 'volunteer':
+        return const Color(0xFF4CAF50); // Green
+      case 'education':
+        return const Color(0xFF2196F3); // Blue
+      case 'medical':
+        return const Color(0xFFF44336); // Red
+      case 'organization':
+        return const Color(0xFF3F51B5); // Indigo
+      case 'fundraising':
+        return const Color(0xFFFFD700); // Gold
+      case 'events':
+        return const Color(0xFF009688); // Teal
+      case 'logistics':
+        return const Color(0xFF795548); // Brown
+      case 'tech_support':
+        return const Color(0xFF607D8B); // Blue Grey
       default:
-        return Colors.red;
+        return const Color(0xFF673AB7); // Deep Purple
     }
   }
 }
