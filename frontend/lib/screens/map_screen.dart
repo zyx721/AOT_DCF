@@ -214,59 +214,59 @@ class _MapScreenState extends State<MapScreen> {
         title: 'Map',
         showLogo: true,
       ),
-      body: FlutterMap(
-        options: MapOptions(
-          center: LatLng(36.7528, 3.0422), // Example: Algiers
-          zoom: 13.0,
-        ),
+      body: Stack(
         children: [
-          Expanded(
-            child: FlutterMap(
-              mapController: mapController,
-              options: MapOptions(
-                center: currentLocation ?? LatLng(36.7528, 3.0422),
-                zoom: 13.0,
-                onTap: (tapPosition, point) {
-                  getPlaceName(point);
-                },
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: const ['a', 'b', 'c'],
-                ),
-                MarkerLayer(
-                  markers: [
-                    if (currentLocation != null)
-                      Marker(
-                        point: currentLocation!,
-                        child:
-                            const Icon(Icons.my_location, color: Colors.blue),
-                      ),
-                    ...charityLocations.map((charity) => Marker(
-                          point: charity.location,
-                          child: GestureDetector(
-                            onTap: () => _showLocationDetails(charity),
-                            child: Icon(
-                              _getMarkerIcon(charity.type),
-                              color: _getMarkerColor(charity.type),
-                              size: 40,
-                            ),
-                          ),
-                        )),
-                  ],
-                ),
-              ],
+          FlutterMap(
+            mapController: mapController,
+            options: MapOptions(
+              center: currentLocation ?? LatLng(36.7528, 3.0422),
+              zoom: 13.0,
+              onTap: (tapPosition, point) {
+                getPlaceName(point);
+              },
             ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                // Remove subdomains to fix the warning
+                tileProvider: NetworkTileProvider(),
+                userAgentPackageName:
+                    'com.example.app', // Add your app package name
+              ),
+              MarkerLayer(
+                markers: [
+                  if (currentLocation != null)
+                    Marker(
+                      point: currentLocation!,
+                      child: const Icon(Icons.my_location, color: Colors.blue),
+                    ),
+                  ...charityLocations.map((charity) => Marker(
+                        point: charity.location,
+                        child: GestureDetector(
+                          onTap: () => _showLocationDetails(charity),
+                          child: Icon(
+                            _getMarkerIcon(charity.type),
+                            color: _getMarkerColor(charity.type),
+                            size: 40,
+                          ),
+                        ),
+                      )),
+                ],
+              ),
+            ],
           ),
           if (selectedPlace.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: Text(
-                'Selected Location: $selectedPlace',
-                style: const TextStyle(fontSize: 16),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: Text(
+                  'Selected Location: $selectedPlace',
+                  style: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
         ],
