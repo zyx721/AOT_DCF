@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
 import 'package:frontend/screens/donation_screen/donation_screen.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:frontend/services/pdf_viewer_screen.dart';
 
 class AssociationScreen extends StatefulWidget {
   final Map<String, dynamic> fundraiser;
@@ -19,46 +21,153 @@ class AssociationScreen extends StatefulWidget {
 }
 
 class _AssociationScreenState extends State<AssociationScreen> {
-  bool _isLoadingPdf = false;
+  bool _isLoadingProposalPdf = false;
+  bool _isLoadingAdditionalPdf = false;
+  bool _isFollowing = false;
   int _currentImageIndex = 0;
 
-  Future<void> _openPdfFile(String? url, String title) async {
-    if (url == null || url.isEmpty) {
+  @override
+  void initState() {
+    super.initState();
+    _checkIfFollowing();
+  }
+
+  Future<void> _checkIfFollowing() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+      
+      if (userDoc.exists) {
+        List<String> following = List<String>.from(userDoc.data()?['following'] ?? []);
+        setState(() {
+          _isFollowing = following.contains(widget.fundraiser['creatorId']);
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No document available')),
+        SnackBar(content: Text('Please login to follow creators')),
       );
       return;
     }
 
-    setState(() => _isLoadingPdf = true);
+    if (currentUser.uid == widget.fundraiser['creatorId']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You cannot follow yourself')),
+      );
+      return;
+    }
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid);
 
     try {
-      final response = await http.get(Uri.parse(url));
-      final bytes = response.bodyBytes;
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/document.pdf');
-      await file.writeAsBytes(bytes);
+      if (_isFollowing) {
+        // Unfollow
+        await userRef.update({
+          'following': FieldValue.arrayRemove([widget.fundraiser['creatorId']])
+        });
+      } else {
+        // Follow
+        await userRef.update({
+          'following': FieldValue.arrayUnion([widget.fundraiser['creatorId']])
+        });
+      }
 
-      setState(() => _isLoadingPdf = false);
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
 
-      Navigator.push(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isFollowing ? 'Following' : 'Unfollowed')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating follow status: $e')),
+      );
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _updateLoadingState(bool isProposal, bool isLoading) {
+    setState(() {
+      if (isProposal) {
+        _isLoadingProposalPdf = isLoading;
+      } else {
+        _isLoadingAdditionalPdf = isLoading;
+      }
+    });
+  }
+
+  Future<File> _downloadPdf(String url, String filename) async {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {'Connection': 'keep-alive'},
+    ).timeout(
+      Duration(seconds: 30),
+      onTimeout: () => throw TimeoutException('Connection timed out'),
+    );
+    
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to load PDF (Status: ${response.statusCode})');
+    }
+    
+    final bytes = response.bodyBytes;
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/$filename');
+    return await file.writeAsBytes(bytes);
+  }
+
+  Future<void> _openPdfFile(String? url, String title, bool isProposal) async {
+    if (url == null || url.isEmpty) {
+      _showErrorMessage('No document available');
+      return;
+    }
+
+    _updateLoadingState(isProposal, true);
+
+    try {
+      final filename = '${title.replaceAll(' ', '_').toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = await _downloadPdf(url, filename);
+      
+      _updateLoadingState(isProposal, false);
+      
+      if (!mounted) return;
+
+      await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: Text(title),
-            ),
-            body: PDFView(
-              filePath: file.path,
-            ),
+          builder: (context) => PdfViewerScreen(
+            filePath: file.path,
+            title: title,
           ),
         ),
       );
     } catch (e) {
-      setState(() => _isLoadingPdf = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading PDF: $e')),
-      );
+      _updateLoadingState(isProposal, false);
+      _showErrorMessage('Error loading PDF: ${e.toString()}');
+      print('PDF loading error: $e');
     }
   }
 
@@ -118,7 +227,7 @@ class _AssociationScreenState extends State<AssociationScreen> {
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
                 color: Colors.grey[300],
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: CircularProgressIndicator(color: Colors.green,)),
               ),
               errorWidget: (context, url, error) => Container(
                 color: Colors.grey[300],
@@ -273,7 +382,7 @@ class _AssociationScreenState extends State<AssociationScreen> {
                     future: _fetchCreatorInfo(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
+                        return Center(child: CircularProgressIndicator(color: Colors.green,));
                       }
                       
                       if (!snapshot.hasData || snapshot.data == null) {
@@ -297,11 +406,12 @@ class _AssociationScreenState extends State<AssociationScreen> {
                           style: TextStyle(color: Colors.grey[600]),
                         ),
                         trailing: OutlinedButton(
-                          onPressed: () {},
-                          child: Text('Follow'),
+                          onPressed: _toggleFollow,
+                          child: Text(_isFollowing ? 'Following' : 'Follow'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green,
-                            side: BorderSide(color: Colors.green),
+                          foregroundColor: _isFollowing ? Colors.white : Colors.green,
+                          backgroundColor: _isFollowing ? Colors.green : null,
+                          side: BorderSide(color: Colors.green),
                           ),
                         ),
                       );
@@ -347,9 +457,17 @@ class _AssociationScreenState extends State<AssociationScreen> {
           title: Text('Additional Documents',
               style: TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Text('View additional documents'),
+          trailing: _isLoadingAdditionalPdf
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2,color: Colors.green,),
+                )
+              : null,
           onTap: () => _openPdfFile(
             widget.fundraiser['additionalDocUrl'],
             'Additional Documents',
+            false,
           ),
         ),
         Divider(height: 32),
@@ -361,36 +479,38 @@ class _AssociationScreenState extends State<AssociationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Fund Usage Plan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            _isLoadingPdf
-                ? CircularProgressIndicator()
-                : OutlinedButton.icon(
-                    onPressed: () => _openPdfFile(
-                      widget.fundraiser['proposalDocUrl'],
-                      'Fund Usage Plan',
-                    ),
-                    icon: Icon(Icons.visibility, size: 18),
-                    label: Text('View Plan'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green,
-                      side: BorderSide(color: Colors.green),
-                    ),
-                  ),
-          ],
-        ),
-        if (widget.fundraiser['fundUsage'] != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Text(
-              widget.fundraiser['fundUsage'],
-              style: TextStyle(fontSize: 14),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+        Text('Fund Usage Plan',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        _isLoadingProposalPdf
+          ? CircularProgressIndicator(color: Colors.green,)
+          : OutlinedButton.icon(
+            onPressed: () => _openPdfFile(
+              widget.fundraiser['proposalDocUrl'],
+              'Fund Usage Plan',
+              true,
             ),
-          ),
-        Divider(height: 32),
+            icon: Icon(Icons.visibility, size: 18, color: Colors.white),
+            label: Text('View Plan'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.green,
+              side: BorderSide(color: Colors.green),
+            ),
+            ),
+        ],
+      ),
+      if (widget.fundraiser['fundUsage'] != null)
+        Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text(
+          widget.fundraiser['fundUsage'],
+          style: TextStyle(fontSize: 14),
+        ),
+        ),
+      Divider(height: 32),
       ],
     );
   }
