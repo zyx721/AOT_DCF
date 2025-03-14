@@ -52,8 +52,17 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-
-      initialRoute: '/login',
+      home: FutureBuilder<String>(
+        future: _determineInitialRoute(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          final route = snapshot.data ?? '/login';
+          return _buildScreenForRoute(route);
+        },
+      ),
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
@@ -64,6 +73,21 @@ class MyApp extends StatelessWidget {
         '/select-interests': (context) => const SelectInterestScreen(),
       },
     );
+  }
+
+  Widget _buildScreenForRoute(String route) {
+    switch (route) {
+      case '/navbar':
+        return const NavBarScreen();
+      case '/select-country':
+        return const SelectCountryScreen();
+      case '/fill-profile':
+        return const FillProfileScreen();
+      case '/select-interests':
+        return const SelectInterestScreen();
+      default:
+        return const LoginScreen();
+    }
   }
 }
 

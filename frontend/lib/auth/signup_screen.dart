@@ -448,9 +448,10 @@ class _SignupScreenState extends State<SignupScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color.fromARGB(255, 106, 27, 154),
-              Color.fromARGB(255, 171, 71, 188),
-              Color.fromARGB(255, 145, 41, 140),
+              Color.fromRGBO(255, 255, 255, 1),
+              Color.fromARGB(65, 26, 126, 51),
+              Color.fromARGB(120, 26, 126, 51),
+              Color.fromARGB(255, 26, 126, 51),
             ],
           ),
         ),
@@ -466,9 +467,9 @@ class _SignupScreenState extends State<SignupScreen>
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Image.asset(
-                        'assets/images/onboarding3_b.png',
-                        height: 150,
-                        width: 150,
+                        'assets/images/logo.png',
+                        height: 220,
+                        width: 220,
                       ),
                     ),
                     const SizedBox(height: 20),

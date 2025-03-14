@@ -404,7 +404,18 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
             borderSide: BorderSide(color: Colors.green, width: 2),
           ),
         ),
-        items: ['Medical', 'Education', 'Disaster','Poverty'].map((category) {
+        items: ['Medical', 
+              'Disaster', 
+              'Education',  
+              'Environment', 
+              'Social', 
+              'Sick child', 
+              'Infrastructure', 
+              'Art', 
+              'Orphanage', 
+              'Difable', 
+              'Humanity', 
+              'Others'].map((category) {
           return DropdownMenuItem(
             value: category,
             child: Text(category),
