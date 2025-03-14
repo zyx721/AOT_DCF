@@ -7,7 +7,7 @@ class ConversationManager {
   static List<Map<String, dynamic>> _conversationHistory = [];
   static bool _isInitialized = false;
 
-  static final _historyController = 
+  static final _historyController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
   static Stream<List<Map<String, dynamic>>> get historyStream =>
       _historyController.stream;
@@ -37,7 +37,7 @@ class ConversationManager {
       if (await file.exists()) {
         final contents = await file.readAsString();
         final data = json.decode(contents);
-        _conversationHistory = 
+        _conversationHistory =
             List<Map<String, dynamic>>.from(data['history'] ?? []);
       }
     } catch (e) {
@@ -63,7 +63,7 @@ class ConversationManager {
 
   static String getContextPrompt() {
     if (_conversationHistory.isEmpty) return '';
-    
+
     final buffer = StringBuffer();
     final recentMessages = _conversationHistory.reversed.take(5);
     for (var msg in recentMessages) {

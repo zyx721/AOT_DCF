@@ -44,9 +44,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   @override
   void initState() {
     super.initState();
-    _loadConversationHistory();
-    // Initialize conversation with existing history
-    _conversation = List.from(widget.initialConversation);
+    // Update this section to properly load history
+    _conversation = List.from(ConversationManager.history);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeSpeech();
@@ -199,14 +198,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
     try {
       _logMessage('Generating response for: $text');
 
-      // Build conversation history prompt
-      final contextPrompt = ConversationManager.getContextPrompt();
-      var conversationContext = StringBuffer(contextPrompt);
-      conversationContext.writeln('\nPrevious conversation:');
+      // Get full conversation history from ConversationManager
+      final conversationContext = StringBuffer();
 
-      // Add last few messages for context
-      final recentMessages = _conversation.reversed.take(5).toList().reversed;
-      for (var msg in recentMessages) {
+      // Add all historical messages for context
+      final allMessages = ConversationManager.history;
+      for (var msg in allMessages) {
         conversationContext
             .writeln('${msg['isUser'] ? 'User' : 'Assistant'}: ${msg['text']}');
       }
@@ -217,7 +214,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
       _logMessage(
           'Using conversation context: ${conversationContext.toString()}');
 
-      // Create content with full context
       final content = [genai.Content.text(conversationContext.toString())];
       final response = await model.generateContent(content);
       final responseText =
@@ -515,8 +511,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
 
   @override
   void dispose() {
-    // Update shared history before disposing
     ConversationManager.updateHistory(_conversation);
+    // ...existing code...
     flutterTts.stop();
     _logMessage('Stopping TTS and cleaning up');
     _logMessage('Conversation history:');
