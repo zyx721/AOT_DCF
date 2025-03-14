@@ -10,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:frontend/services/conversation_manager.dart';
 import 'package:frontend/widgets/modern_app_bar.dart';
-import 'package:lottie/lottie.dart';  // Add this import
+import 'package:lottie/lottie.dart'; // Add this import
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -372,32 +372,36 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildAvatar({required bool isUser}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [
-              Color.fromARGB(255, 26, 126, 51),
-              Color.fromARGB(120, 26, 126, 51),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: ClipOval(
-          child: isUser
-              ? Image.asset(
-                  'assets/images/profile.jpg', // Add your profile picture to assets
-                  fit: BoxFit.cover,
-                )
-              : Lottie.asset(
-                  'assets/animation/voice_wave.json',
+      child: isUser
+          ? Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [
+                    Color.fromARGB(255, 26, 126, 51),
+                    Color.fromARGB(120, 26, 126, 51),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/profile.jpg',
                   fit: BoxFit.cover,
                 ),
-        ),
-      ),
+              ),
+            )
+          : SizedBox(
+              width: 45,
+              height: 45,
+              child: Lottie.asset(
+                'assets/animation/voice_wave.json',
+                fit: BoxFit.cover,
+              ),
+            ),
     );
   }
 
