@@ -9,8 +9,10 @@ class ConversationManager {
   static bool _isInitialized = false;
   static String _currentName = '';
 
-  static final _historyController = StreamController<List<Map<String, dynamic>>>.broadcast();
-  static Stream<List<Map<String, dynamic>>> get historyStream => _historyController.stream;
+  static final _historyController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
+  static Stream<List<Map<String, dynamic>>> get historyStream =>
+      _historyController.stream;
 
   static List<Map<String, dynamic>> get history => _conversationHistory;
   static Map<String, dynamic> get context => _context;
