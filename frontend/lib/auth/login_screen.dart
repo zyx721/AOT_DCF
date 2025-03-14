@@ -202,6 +202,7 @@ class _LoginScreenState extends State<LoginScreen>
 
             if (!userDoc.exists) {
               userData['createdAt'] = DateTime.now();
+              userData['isFirst'] = true;  // Add this line for new users
             }
 
             await FirebaseFirestore.instance
@@ -211,15 +212,24 @@ class _LoginScreenState extends State<LoginScreen>
 
             await saveDeviceTokenToFirestore(user.uid);
 
-
             // Save login state before navigation
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('isLoggedIn', true);
 
-
-            // Always navigate to select-country screen
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/select-country');
+            // Check if it's first time login
+            if (userDoc.exists && userDoc.data()?['isFirst'] == false) {
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/navbar');
+              }
+            } else {
+              // First time login - update isFirst and go to country selection
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .update({'isFirst': false});
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/select-country');
+              }
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -492,17 +502,19 @@ class _LoginScreenState extends State<LoginScreen>
               .doc(user.uid)
               .get();
 
-          if (userDoc.exists && userDoc.data()?['isNotFirst'] == false) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('isLoggedIn', true);
+          if (userDoc.exists && userDoc.data()?['isFirst'] == false) {
             if (mounted) {
               Navigator.pushReplacementNamed(context, '/navbar');
             }
           } else {
+            // First time login - update isFirst and go to country selection
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .update({'isFirst': false});
             if (mounted) {
               Navigator.pushReplacementNamed(context, '/select-country');
             }
-
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

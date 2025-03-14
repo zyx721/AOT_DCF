@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../services/drive.dart';
 import '../../widgets/modern_app_bar.dart';
 import '../select_interest_screen.dart';
@@ -19,7 +21,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final user = FirebaseAuth.instance.currentUser;
   final firestore = FirebaseFirestore.instance;
   final GoogleDriveService _driveService = GoogleDriveService();
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   bool _isUploading = false;
+  bool _isEditingAbout = false;
+  final TextEditingController _aboutController = TextEditingController();
 
   Widget _buildStatItem(String title, String count) {
     return Column(
@@ -85,42 +90,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _updateAboutMe() async {
-    final TextEditingController _aboutController = TextEditingController();
-    final userData = await firestore.collection('users').doc(user?.uid).get();
-    _aboutController.text = (userData.data() as Map<String, dynamic>)['aboutMe'] ?? '';
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit About Me', style: GoogleFonts.poppins()),
-        content: TextField(
-          controller: _aboutController,
-          decoration: InputDecoration(
-            hintText: 'Tell us about yourself...',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {  // Added async here
-              await firestore.collection('users').doc(user?.uid).update({
-                'aboutMe': _aboutController.text,
-              });
-              Navigator.pop(context);
-            },
-            child: Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _editInterests() async {
     final userSnapshot = await firestore.collection('users').doc(user?.uid).get();
     final currentInterests = userSnapshot.data()?['interests'] ?? [];
@@ -138,6 +107,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .update({
+          'isConnected': false,
+          'lastSignIn': DateTime.now(),
+        });
+      }
+
+      await _googleSignIn.signOut();
+      await FirebaseAuth.instance.signOut();
+      await prefs.setBool('isLoggedIn', false);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      print('Logout Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -145,6 +148,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: ModernAppBar(
         title: "Profile",
         actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: handleLogout,
+          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {},
@@ -220,7 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 16),
                         GestureDetector(
-                          onTap: _updateAboutMe,
+                          onTap: () => setState(() => _isEditingAbout = true),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),
@@ -243,19 +250,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         color: const Color(0xFF57AB7D),
                                       ),
                                     ),
-                                    Icon(Icons.edit, 
-                                        color: const Color(0xFF57AB7D),
-                                        size: 18),
+                                    if (!_isEditingAbout)
+                                      Icon(Icons.edit, 
+                                          color: const Color(0xFF57AB7D),
+                                          size: 18),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  aboutMe,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
+                                if (_isEditingAbout) ...[
+                                  TextField(
+                                    controller: _aboutController..text = aboutMe,
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(Icons.check, color: const Color(0xFF57AB7D)),
+                                        onPressed: () async {
+                                          await firestore.collection('users').doc(user?.uid).update({
+                                            'aboutMe': _aboutController.text,
+                                          });
+                                          setState(() => _isEditingAbout = false);
+                                        },
+                                      ),
+                                    ),
+                                    maxLines: 3,
                                   ),
-                                ),
+                                ] else
+                                  Text(
+                                    aboutMe,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -278,44 +304,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.account_balance_wallet,
-                                        color: const Color(0xFF57AB7D)),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "\$0",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                Icon(Icons.account_balance_wallet,
+                                    color: const Color(0xFF57AB7D)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "\$0",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        Text(
-                                          "My wallet balance",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
+                                      ),
+                                      Text(
+                                        "My wallet balance",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.grey,
                                         ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                ElevatedButton(
-                                  onPressed: () {},
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF57AB7D),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
+                                SizedBox(
+                                  width: 80,
+                                  child: ElevatedButton(
+                                    onPressed: () {},
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF57AB7D),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                      padding: EdgeInsets.symmetric(horizontal: 8),
+                                    ),
+                                    child: Text(
+                                      "Top up",
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
-                                  child: Text("Top up",
-                                      style: GoogleFonts.poppins(color: Colors.white)),
                                 ),
                               ],
                             ),
