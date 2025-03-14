@@ -90,8 +90,12 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Volunteer Map")),
-      body: Column(
+      body: FlutterMap(
+        options: MapOptions(
+          center: LatLng(36.7528, 3.0422), // Example: Algiers
+          zoom: 13.0,
+        ),
+
         children: [
           Expanded(
             child: FlutterMap(

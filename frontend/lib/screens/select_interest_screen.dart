@@ -4,7 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SelectInterestScreen extends StatefulWidget {
-  const SelectInterestScreen({Key? key}) : super(key: key);
+  final bool isEditing;
+  final List<dynamic> currentInterests;
+
+  const SelectInterestScreen({
+    Key? key, 
+    this.isEditing = false,
+    this.currentInterests = const [],
+  }) : super(key: key);
 
   @override
   _SelectInterestScreenState createState() => _SelectInterestScreenState();
@@ -30,6 +37,14 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
   final Set<String> selectedInterests = {};
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      selectedInterests.addAll(widget.currentInterests.cast<String>());
+    }
+  }
+
   Future<void> _saveInterests() async {
     setState(() => _isLoading = true);
     try {
@@ -51,7 +66,11 @@ class _SelectInterestScreenState extends State<SelectInterestScreen> {
           barrierDismissible: false,
           builder: (context) => const FadeInSuccessDialog(),
         );
-        Navigator.pushReplacementNamed(context, '/navbar');
+        if (widget.isEditing && mounted) {
+          Navigator.pop(context, true);
+        } else {
+          Navigator.pushReplacementNamed(context, '/navbar');
+        }
       }
     } catch (e) {
       if (mounted) {

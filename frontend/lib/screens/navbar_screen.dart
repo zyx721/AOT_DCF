@@ -5,6 +5,7 @@ import 'Fundraising_screen/fundraising_screen.dart';
 import 'Chat_screen/chat_screen.dart';
 import 'Profile_screen/profile_screen.dart';
 
+
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
 
@@ -16,9 +17,9 @@ class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const HomeScreen(),
-    const ChatPage(), // Changed from ScheduleScreen to ChatPage
-    const FundraisingScreen(),
+    HomeScreen(),
+    const ScheduleScreen(),
+   FundraisingScreen(),
     const ChatScreen(),
     const ProfileScreen(),
   ];
@@ -58,10 +59,12 @@ class _NavBarScreenState extends State<NavBarScreen> {
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
+
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
