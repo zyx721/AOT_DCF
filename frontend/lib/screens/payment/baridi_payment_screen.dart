@@ -36,7 +36,7 @@ class _BaridiPaymentScreenState extends State<BaridiPaymentScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Image.asset('assets/images/baridi.png', height: 60),
               SizedBox(height: 10),
@@ -45,93 +45,106 @@ class _BaridiPaymentScreenState extends State<BaridiPaymentScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF57AB7D),
+                  color: Color(0xFF336799),
                 ),
               ),
-              Divider(thickness: 2, color: Color(0xFF57AB7D)),
+              Divider(thickness: 2, color: Color(0xFFF3CB35)),
               SizedBox(height: 20),
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Color(0xFF57AB7D)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('ORDER NUMBER'),
-                        Text('TOTAL'),
-                      ],
-                    ),
-                    Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(widget.orderNumber),
-                        Text('${widget.amount.toStringAsFixed(2)} DZD'),
-                      ],
-                    ),
-                  ],
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Table(
+                        border: TableBorder.all(
+                          color: Color(0xFF336799),
+                          width: 1,
+                        ),
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF336799),
+                            ),
+                            children: [
+                              TableCell(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(
+                                    'ORDER NUMBER',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                              TableCell(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(
+                                    'TOTAL',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                            ),
+                            children: [
+                              TableCell(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(widget.orderNumber),
+                                ),
+                              ),
+                              TableCell(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(
+                                      '${widget.amount.toStringAsFixed(2)} DZD'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                      _buildTextField('Credit card number'),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: _buildTextField('Month')),
+                          SizedBox(width: 10),
+                          Expanded(child: _buildTextField('Year')),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      _buildTextField('Card holder name'),
+                      SizedBox(height: 10),
+                      _buildTextField('CVV'),
+                    ],
+                  ),
                 ),
               ),
-              SizedBox(height: 20),
-              _buildTextField('Credit card number'),
-              SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Month',
-                      ),
-                      value: '11',
-                      items: List.generate(12, (index) {
-                        final month = (index + 1).toString().padLeft(2, '0');
-                        return DropdownMenuItem(value: month, child: Text(month));
-                      }),
-                      onChanged: (value) {},
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Year',
-                      ),
-                      value: '2024',
-                      items: List.generate(10, (index) {
-                        final year = (2024 + index).toString();
-                        return DropdownMenuItem(value: year, child: Text(year));
-                      }),
-                      onChanged: (value) {},
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10),
-              _buildTextField('Card holder name'),
-              SizedBox(height: 10),
-              _buildTextField('CVV'),
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    // Handle payment submission
                     Navigator.of(context).pop(true);
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF57AB7D),
+                  backgroundColor: Color(0xFF336799),
                   minimumSize: Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: Text('Submit Payment'),
+                child: Text(
+                  'Submit',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),

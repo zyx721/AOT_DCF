@@ -77,15 +77,13 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _conversationHistory = ConversationManager.history;
         _messages.clear();
-        for (var msg in _conversationHistory) {
-          _messages.insert(
-            0,
-            ChatMessage(
-              text: msg['text'],
-              isUser: msg['isUser'],
-              timestamp: DateTime.parse(msg['timestamp']),
-            ),
-          );
+        // Only add messages once from the history
+        for (var msg in _conversationHistory.reversed) {
+          _messages.add(ChatMessage(
+            text: msg['text'],
+            isUser: msg['isUser'],
+            timestamp: DateTime.parse(msg['timestamp']),
+          ));
         }
       });
     }
@@ -382,19 +380,70 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                return _buildMessage(_messages[index]);
-              },
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+              Color.fromARGB(255, 26, 126, 51).withOpacity(0.05),
+            ],
           ),
-          _buildMessageInput(),
-        ],
+        ),
+        child: Stack(
+          children: [
+            // Add decorative shapes
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.2),
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              left: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.15),
+                      Color.fromARGB(255, 26, 126, 51).withOpacity(0.05),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    reverse: true,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildMessage(_messages[index]);
+                    },
+                  ),
+                ),
+                _buildMessageInput(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
