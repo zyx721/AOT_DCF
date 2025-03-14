@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'create_fund_screen.dart';
+import 'edit_fund_screen.dart';  // Add this import
 
 class FundraisingScreen extends StatefulWidget {
   @override
@@ -329,18 +330,34 @@ class FundraisingCard extends StatelessWidget {
   }
 
   Widget _buildActionButton(IconData icon, String label) {
-    return TextButton.icon(
-      onPressed: () {},
-      icon: Icon(icon, color: Colors.grey[600], size: 16), // Reduced icon size
-      label: Text(
-        label,
-        style: TextStyle(color: Colors.grey[600], fontSize: 13), // Added smaller font size
-      ),
-      style: TextButton.styleFrom(
-        minimumSize: Size.zero,
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Reduced padding
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+    return Builder(  // Wrap with Builder to get context
+      builder: (BuildContext context) {  // Get context here
+        return TextButton.icon(
+          onPressed: () {
+            if (label == 'Edit') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditFundraisingScreen(
+                    fundraiserId: fundraiser['id'],
+                    fundraiserData: fundraiser,
+                  ),
+                ),
+              );
+            }
+          },
+          icon: Icon(icon, color: Colors.grey[600], size: 16), // Reduced icon size
+          label: Text(
+            label,
+            style: TextStyle(color: Colors.grey[600], fontSize: 13), // Added smaller font size
+          ),
+          style: TextButton.styleFrom(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Reduced padding
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        );
+      },
     );
   }
 }

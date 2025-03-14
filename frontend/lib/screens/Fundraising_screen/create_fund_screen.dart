@@ -8,6 +8,16 @@ import '../../services/drive.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateFundraisingScreen extends StatefulWidget {
+  final bool isEditing;
+  final Map<String, dynamic>? initialData;
+  final String? fundraiserId;
+
+  CreateFundraisingScreen({
+    this.isEditing = false,
+    this.initialData,
+    this.fundraiserId,
+  });
+
   @override
   _CreateFundraisingScreenState createState() => _CreateFundraisingScreenState();
 }
@@ -37,10 +47,31 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
   List<String?> _secondaryImageUrls = List.filled(4, null);
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      _agreedToTerms = true; // Set to true by default in edit mode
+    }
+    if (widget.isEditing && widget.initialData != null) {
+      _titleController.text = widget.initialData!['title'] ?? '';
+      _donationAmountController.text = widget.initialData!['donationAmount']?.toString() ?? '';
+      _fundUsageController.text = widget.initialData!['fundUsage'] ?? '';
+      _recipientNameController.text = widget.initialData!['recipientName'] ?? '';
+      _storyController.text = widget.initialData!['story'] ?? '';
+      _selectedCategory = widget.initialData!['category'];
+      _selectedDate = (widget.initialData!['expirationDate'] as Timestamp).toDate();
+      _mainImageUrl = widget.initialData!['mainImageUrl'];
+      _proposalDocUrl = widget.initialData!['proposalDocUrl'];
+      _additionalDocUrl = widget.initialData!['additionalDocUrl'];
+      _secondaryImageUrls = List<String?>.from(widget.initialData!['secondaryImageUrls'] ?? List.filled(4, null));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Create New Fundraising'),
+        title: Text(widget.isEditing ? 'Edit Fundraiser' : 'Create New Fundraising'),
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -64,7 +95,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
                 _buildFileUploadField('Upload Donation Proposal Documents', true),
                 _buildFileUploadField('Upload Aditional Documents (Optional)', false),
                 _buildTextField(_storyController, 'Story', 'Describe donation story', true, maxLines: 3),
-                _buildTermsCheckbox(),
+                if (!widget.isEditing) _buildTermsCheckbox(), // Only show checkbox if not editing
                 _buildActionButtons(),
               ],
             ),
@@ -153,7 +184,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
                 ),
                 SizedBox(height: 20),
                 Text(
-                  'Successfully Created!',
+                  widget.isEditing ? 'Successfully Updated!' : 'Successfully Created!',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -180,7 +211,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
   }
 
   Future<void> _submitFundraiser() async {
-    if (_formKey.currentState!.validate() && _agreedToTerms) {
+    if (_formKey.currentState!.validate() && (widget.isEditing || _agreedToTerms)) {
       await _uploadFiles();
       
       try {
@@ -192,8 +223,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
           return;
         }
 
-        // Create fundraiser document
-        DocumentReference fundraiserRef = await FirebaseFirestore.instance.collection('fundraisers').add({
+        final Map<String, dynamic> fundraiserData = {
           'title': _titleController.text,
           'category': _selectedCategory,
           'donationAmount': double.parse(_donationAmountController.text),
@@ -201,26 +231,42 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
           'fundUsage': _fundUsageController.text,
           'recipientName': _recipientNameController.text,
           'story': _storyController.text,
-          'mainImageUrl': _mainImageUrl,
-          'proposalDocUrl': _proposalDocUrl,
-          'additionalDocUrl': _additionalDocUrl,
-          'secondaryImageUrls': _secondaryImageUrls,
-          'createdAt': FieldValue.serverTimestamp(),
-          'funding': 0,
-          'status': 'pending',
-          'creatorId': currentUser.uid,
-          'donators': 0,  // Add this line
-        });
+          'mainImageUrl': _mainImageUrl ?? widget.initialData?['mainImageUrl'],
+          'proposalDocUrl': _proposalDocUrl ?? widget.initialData?['proposalDocUrl'],
+          'additionalDocUrl': _additionalDocUrl ?? widget.initialData?['additionalDocUrl'],
+          'secondaryImageUrls': _secondaryImageUrls.map((url) => url ?? '').toList(),
+        };
 
-        // Update user's fundraisers list
-        await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).update({
-          'fundraisers': FieldValue.arrayUnion([fundraiserRef.id])
-        });
+        if (widget.isEditing) {
+          // Update existing fundraiser
+          await FirebaseFirestore.instance
+              .collection('fundraisers')
+              .doc(widget.fundraiserId)
+              .update(fundraiserData);
+        } else {
+          // Create new fundraiser
+          fundraiserData['createdAt'] = FieldValue.serverTimestamp();
+          fundraiserData['funding'] = 0;
+          fundraiserData['status'] = 'pending';
+          fundraiserData['creatorId'] = currentUser.uid;
+          fundraiserData['donators'] = 0;
+
+          DocumentReference fundraiserRef = await FirebaseFirestore.instance
+              .collection('fundraisers')
+              .add(fundraiserData);
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .update({
+            'fundraisers': FieldValue.arrayUnion([fundraiserRef.id])
+          });
+        }
         
         _showSuccessDialog();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating fundraiser: $e')),
+          SnackBar(content: Text('Error ${widget.isEditing ? "updating" : "creating"} fundraiser: $e')),
         );
       }
     }
@@ -233,7 +279,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
         GestureDetector(
           onTap: _pickImage,
           child: Container(
-            height: 300, // Increased from 200
+            height: 300,
             width: double.infinity,
             decoration: BoxDecoration(
               border: Border.all(color: Colors.green, width: 2),
@@ -243,13 +289,18 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
                       image: FileImage(_mainImage!),
                       fit: BoxFit.cover,
                     )
-                  : null,
+                  : widget.initialData?['mainImageUrl'] != null
+                      ? DecorationImage(
+                          image: NetworkImage(widget.initialData!['mainImageUrl']),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
             ),
-            child: _mainImage == null
+            child: (_mainImage == null && widget.initialData?['mainImageUrl'] == null)
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_a_photo, size: 80, color: Colors.green), // Increased from 50
+                      Icon(Icons.add_a_photo, size: 80, color: Colors.green),
                       const SizedBox(height: 16),
                       Text(
                         'Add Cover Image',
@@ -287,9 +338,16 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
                   image: FileImage(_secondaryImages[index]!),
                   fit: BoxFit.cover,
                 )
-              : null,
+              : widget.initialData?['secondaryImageUrls']?[index] != null
+                  ? DecorationImage(
+                      image: NetworkImage(widget.initialData!['secondaryImageUrls'][index]),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
         ),
-        child: _secondaryImages[index] == null
+        child: (_secondaryImages[index] == null && 
+                (widget.initialData?['secondaryImageUrls']?[index] == null || 
+                 widget.initialData?['secondaryImageUrls']?[index].isEmpty))
             ? Icon(Icons.add_photo_alternate, color: Colors.green, size: 30)
             : null,
       ),
@@ -471,7 +529,7 @@ class _CreateFundraisingScreenState extends State<CreateFundraisingScreen> {
           child: _isUploading
               ? CircularProgressIndicator(color: Colors.white)
               : Text(
-                  'Create & Submit',
+                  widget.isEditing ? 'Update & Submit' : 'Create & Submit',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
