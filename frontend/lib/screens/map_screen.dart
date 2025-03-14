@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../widgets/modern_app_bar.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -90,12 +91,15 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: const ModernAppBar(
+        title: 'Map',
+        showLogo: true,
+      ),
       body: FlutterMap(
         options: MapOptions(
           center: LatLng(36.7528, 3.0422), // Example: Algiers
           zoom: 13.0,
         ),
-
         children: [
           Expanded(
             child: FlutterMap(

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/map_screen.dart';
 import 'Home_screen/home_screen.dart';
 import 'Chatbot_screen/chatbot.dart'; // Updated import
 import 'Fundraising_screen/fundraising_screen.dart';
 import 'Chat_screen/chat_screen.dart';
 import 'Profile_screen/profile_screen.dart';
-
 
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
@@ -18,8 +18,8 @@ class _NavBarScreenState extends State<NavBarScreen> {
 
   final List<Widget> _pages = [
     HomeScreen(),
-    const ScheduleScreen(),
-   FundraisingScreen(),
+    const MapScreen(),
+    FundraisingScreen(),
     const ChatScreen(),
     const ProfileScreen(),
   ];
@@ -59,12 +59,10 @@ class _NavBarScreenState extends State<NavBarScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
-
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -85,7 +83,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(Icons.home_rounded, 0, 'Home'),
-            _buildNavItem(Icons.calendar_month_rounded, 1, 'Schedule'),
+            _buildNavItem(Icons.map_rounded, 1, 'Map'),
             _buildNavItem(Icons.volunteer_activism_rounded, 2, 'Fundraise'),
             _buildNavItem(Icons.chat_rounded, 3, 'Chat'),
             _buildNavItem(Icons.person_rounded, 4, 'Profile'),
