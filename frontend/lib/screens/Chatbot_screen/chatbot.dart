@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/Chatbot_screen/voice_chat_screen.dart';
 import 'package:frontend/screens/colors.dart';
@@ -31,11 +33,16 @@ class _ChatPageState extends State<ChatPage> {
   List<Map<String, dynamic>> _conversationHistory = []; // Add this line
   late final genai.GenerativeModel model;
   bool _isGeneratingResponse = false;
+  Timer? _autoSaveTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    // Set up auto-save timer
+    _autoSaveTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      ConversationManager.saveHistory();
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -233,7 +240,6 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     try {
-      // Include full context in prompt
       final contextPrompt = ConversationManager.getContextPrompt();
       final prompt = contextPrompt + "\nUser: " + text;
 
@@ -266,15 +272,22 @@ class _ChatPageState extends State<ChatPage> {
       print('Error generating response: $e');
       if (mounted) {
         setState(() {
-          _messages.insert(
-            0,
-            ChatMessage(
-              text: 'Sorry, I encountered an error. Please try again.',
-              isUser: false,
-              timestamp: DateTime.now(),
-            ),
-          );
           _isGeneratingResponse = false;
+          // Add error message to conversation and save immediately
+          final errorMessage = {
+            'text': 'Sorry, I encountered an error. Please try again.',
+            'isUser': false,
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+          _messages.insert(
+              0,
+              ChatMessage(
+                text: errorMessage['text'] as String,
+                isUser: false,
+                timestamp: DateTime.now(),
+              ));
+          _conversationHistory.add(errorMessage);
+          ConversationManager.addMessage(errorMessage);
         });
       }
     }
@@ -504,6 +517,9 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
+    // Save one final time before disposing
+    ConversationManager.saveHistory();
     _messageController.dispose();
     channel.sink.close();
     audioPlayer.dispose();

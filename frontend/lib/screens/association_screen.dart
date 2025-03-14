@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
 import 'package:frontend/screens/donation_screen/donation_screen.dart';
 
 class AssociationScreen extends StatelessWidget {
@@ -21,6 +22,17 @@ class AssociationScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.chat_bubble_outline, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatPage(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(Icons.share, color: Colors.white),
             onPressed: () {},

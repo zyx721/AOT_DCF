@@ -3,8 +3,9 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
 import '../../widgets/modern_app_bar.dart'; // Add this import
-import '../association_screen.dart';  // Add this import
+import '../association_screen.dart'; // Add this import
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -393,7 +394,8 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                                   builder: (context) => AssociationScreen(
                                     fundraiser: {
                                       'id': fundraiser.id,
-                                      ...fundraiser.data() as Map<String, dynamic>,
+                                      ...fundraiser.data()
+                                          as Map<String, dynamic>,
                                     },
                                   ),
                                 ),
@@ -465,6 +467,34 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                                                   ),
                                                 ),
                                               ],
+                                            ),
+                                          ),
+                                          SizedBox(width: 8),
+
+                                          // Chat icon button
+                                          Material(
+                                            color:
+                                                Colors.black.withOpacity(0.7),
+                                            shape: CircleBorder(),
+                                            child: InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        ChatPage(),
+                                                  ),
+                                                );
+                                              },
+                                              customBorder: CircleBorder(),
+                                              child: Padding(
+                                                padding: EdgeInsets.all(6),
+                                                child: Icon(
+                                                  Icons.chat_bubble_outline,
+                                                  color: Colors.white,
+                                                  size: 18,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                           SizedBox(width: 8),
