@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:frontend/services/pdf_viewer_screen.dart';
+import 'package:intl/intl.dart';
 
 class AssociationScreen extends StatefulWidget {
   final Map<String, dynamic> fundraiser;
@@ -541,38 +542,198 @@ class _AssociationScreenState extends State<AssociationScreen> {
     );
   }
 
-  Widget _buildPrayersSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+Widget _buildPrayersSection() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Prayers from Good People',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton(
-              onPressed: () {},
-              child: Text('See all'),
+            Text(
+              'Prayers',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            TextButton.icon(
+              onPressed: () => _showAddPrayerDialog(),
+              icon: Icon(Icons.add, color: Colors.green),
+              label: Text('Add Prayer'),
               style: TextButton.styleFrom(foregroundColor: Colors.green),
             ),
           ],
         ),
-        SizedBox(height: 8),
-        _buildPrayerCard(
-            'Esther Howard',
-            'Hopefully the patient can get surgery soon, recover from illness.',
-            48),
-        _buildPrayerCard('Robert Brown', 'Praying for a quick recovery.', 39),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 12),
+      StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('fundraisers')
+            .doc(widget.fundraiser['id'])
+            .collection('prayers')
+            .orderBy('timestamp', descending: true)
+            .limit(8) // Increased limit for more cards
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Text('Something went wrong');
+          }
 
-  Widget _buildPrayerCard(String name, String message, int likes) {
-    return Card(
-      elevation: 1,
-      margin: EdgeInsets.only(bottom: 12),
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.volunteer_activism, size: 48, color: Colors.grey),
+                    SizedBox(height: 12),
+                    Text(
+                      'No prayers yet. Be the first to share.',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return SizedBox(
+            height: 230, // Slightly increased height for date/time
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              itemCount: snapshot.data!.docs.length,
+              itemBuilder: (context, index) {
+                final prayer = snapshot.data!.docs[index];
+                final timestamp = prayer['timestamp'] as Timestamp?;
+                final DateTime dateTime = timestamp?.toDate() ?? DateTime.now();
+                
+                return _buildPrayerCard(
+                  prayer.id,
+                  prayer['userName'] ?? 'Anonymous',
+                  prayer['message'],
+                  prayer['likes'] ?? 0,
+                  (prayer['likedBy'] ?? []).contains(FirebaseAuth.instance.currentUser?.uid),
+                  prayer['photoURL'] ?? 'assets/images/profile.jpg',
+                  dateTime,
+                );
+              },
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
+void _showAddPrayerDialog() {
+  final TextEditingController messageController = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Add Prayer'),
+      content: TextField(
+        controller: messageController,
+        decoration: InputDecoration(
+          hintText: 'Enter your prayer message',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        maxLines: 3,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (messageController.text.isNotEmpty) {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                await FirebaseFirestore.instance
+                    .collection('fundraisers')
+                    .doc(widget.fundraiser['id'])
+                    .collection('prayers')
+                    .add({
+                  'userId': user.uid,
+                  'userName': user.displayName ?? 'Anonymous',
+                  'photoURL': user.photoURL,
+                  'message': messageController.text,
+                  'timestamp': FieldValue.serverTimestamp(),
+                  'likes': 0,
+                  'likedBy': [],
+                });
+                Navigator.pop(context);
+              }
+            }
+          },
+          child: Text('Submit'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _toggleLike(String prayerId, bool isLiked) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+
+  final prayerRef = FirebaseFirestore.instance
+      .collection('fundraisers')
+      .doc(widget.fundraiser['id'])
+      .collection('prayers')
+      .doc(prayerId);
+
+  if (isLiked) {
+    await prayerRef.update({
+      'likes': FieldValue.increment(-1),
+      'likedBy': FieldValue.arrayRemove([user.uid]),
+    });
+  } else {
+    await prayerRef.update({
+      'likes': FieldValue.increment(1),
+      'likedBy': FieldValue.arrayUnion([user.uid]),
+    });
+  }
+}
+
+// Format date helper function
+String _formatDate(DateTime dateTime) {
+  final now = DateTime.now();
+  final difference = now.difference(dateTime);
+  
+  if (difference.inDays == 0) {
+    // Today - show time only
+    return 'Today at ${DateFormat('h:mm a').format(dateTime)}';
+  } else if (difference.inDays == 1) {
+    // Yesterday
+    return 'Yesterday at ${DateFormat('h:mm a').format(dateTime)}';
+  } else if (difference.inDays < 7) {
+    // This week
+    return DateFormat('EEEE').format(dateTime); // Day name
+  } else {
+    // Older than a week
+    return DateFormat('MMM d').format(dateTime); // e.g. Mar 14
+  }
+}
+
+Widget _buildPrayerCard(String prayerId, String name, String message, int likes, bool isLiked, String photoURL, DateTime timestamp) {
+  return Container(
+    width: 280, // Fixed width for cards
+    margin: EdgeInsets.only(right: 12),
+    child: Card(
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
@@ -583,29 +744,68 @@ class _AssociationScreenState extends State<AssociationScreen> {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.grey[200],
-                  child: Text(name[0],
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  backgroundImage: NetworkImage(photoURL),
+                  radius: 18,
                 ),
                 SizedBox(width: 12),
-                Text(name, style: TextStyle(fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        _formatDate(timestamp),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             SizedBox(height: 12),
-            Text(message, style: TextStyle(color: Colors.black87, height: 1.4)),
-            SizedBox(height: 12),
+            Flexible(
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.black87, height: 1.4),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 4,
+              ),
+            ),
+            SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.favorite, color: Colors.green, size: 16),
-                SizedBox(width: 4),
-                Text('$likes people sent this prayer',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: isLiked ? Colors.green : Colors.grey,
+                        size: 20,
+                      ),
+                      onPressed: () => _toggleLike(prayerId, isLiked),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '$likes',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  ],
+                ),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
+  }
