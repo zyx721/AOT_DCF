@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "208606035883-hddqhtlotk15p2lcofh53fjhmen3uhus.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.DCF.AOT",
+            "certificate_hash": "2882e40ca1949a8a8b2941b94ea5804195cc4fba"
+          }
+        },
+        {
           "client_id": "208606035883-n7dbququvpb7ba2e269b7bdf7njfoks9.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
