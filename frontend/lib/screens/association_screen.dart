@@ -356,7 +356,9 @@ class _AssociationScreenState extends State<AssociationScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DonationScreen(),
+                            builder: (context) => DonationScreen(
+                              fundraiserId: widget.fundraiser['id'],
+                            ),
                           ),
                         );
                       },
@@ -367,7 +369,7 @@ class _AssociationScreenState extends State<AssociationScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Donate Now',
                         style: TextStyle(
                           color: Colors.white,

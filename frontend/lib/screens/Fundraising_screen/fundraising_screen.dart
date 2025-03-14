@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'create_fund_screen.dart';
 import 'edit_fund_screen.dart';  // Add this import
+import '../../widgets/results.dart';  // Add this import
 
 class FundraisingScreen extends StatefulWidget {
   @override
@@ -311,13 +312,15 @@ class FundraisingCard extends StatelessWidget {
                 _buildActionButton(Icons.edit, 'Edit'),
                 _buildActionButton(Icons.share, 'Share'),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    showFundraisingDialog(context, fundraiser);  // Now this will work
+                  },
                   child: Text(
                     'See Results',
                     style: TextStyle(
                       color: Colors.green,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13, // Added smaller font size
+                      fontSize: 13,
                     ),
                   ),
                 ),
