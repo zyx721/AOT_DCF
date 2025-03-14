@@ -1,17 +1,83 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class ChatDetailScreen extends StatelessWidget {
+class ChatDetailScreen extends StatefulWidget {
+  final String chatId;
+  final String otherUserId;
   final String name;
   final String imageUrl;
   final bool isOnline;
 
   const ChatDetailScreen({
     Key? key,
+    required this.chatId,
+    required this.otherUserId,
     required this.name,
     required this.imageUrl,
     this.isOnline = false,
   }) : super(key: key);
+
+  @override
+  _ChatDetailScreenState createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends State<ChatDetailScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final currentUser = FirebaseAuth.instance.currentUser;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _markMessagesAsRead();
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatId)
+        .update({'unreadCount': 0});
+  }
+
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty || _isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final message = _messageController.text.trim();
+      final timestamp = FieldValue.serverTimestamp();
+
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .add({
+        'senderId': currentUser?.uid,
+        'message': message,
+        'timestamp': timestamp,
+      });
+
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update({
+        'lastMessage': message,
+        'lastMessageTime': timestamp,
+        'unreadCount': FieldValue.increment(1),
+      });
+
+      _messageController.clear();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send message')),
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +113,7 @@ class ChatDetailScreen extends StatelessWidget {
                       backgroundImage: const AssetImage('assets/images/profile.jpg'),
                       radius: 20,
                     ),
-                    if (isOnline)
+                    if (widget.isOnline)
                       Positioned(
                         right: 0,
                         bottom: 0,
@@ -65,7 +131,7 @@ class ChatDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  name,
+                  widget.name,
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontSize: 18,
@@ -107,25 +173,41 @@ class ChatDetailScreen extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildMessageGroup("9:41 AM", [
-                  buildMessage("Hello, good morning! 😊", false),
-                  buildMessage("I am interested in making a donation...", false),
-                ]),
-                _buildMessageGroup("10:15 AM", [
-                  buildMessage(
-                      "Hi, good afternoon. Donations will be distributed to flood victims in Surabaya.",
-                      true),
-                ]),
-                _buildMessageGroup("10:30 AM", [
-                  buildMessage("Great, thanks a lot for the information 😊", false),
-                  buildMessage(
-                      "I will make a donation as soon as possible after this",
-                      false),
-                ]),
-              ],
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(widget.chatId)
+                  .collection('messages')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Something went wrong'));
+                }
+
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                final messages = snapshot.data!.docs;
+
+                return ListView.builder(
+                  reverse: true,
+                  padding: EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index].data() 
+                        as Map<String, dynamic>;
+                    final isMe = message['senderId'] == currentUser?.uid;
+
+                    return buildMessage(
+                      message['message'],
+                      isMe,
+                      message['timestamp'] as Timestamp?,
+                    );
+                  },
+                );
+              },
             ),
           ),
           Container(
@@ -150,6 +232,7 @@ class ChatDetailScreen extends StatelessWidget {
                 ),
                 Expanded(
                   child: TextField(
+                    controller: _messageController,
                     decoration: InputDecoration(
                       hintText: "Type message...",
                       hintStyle:
@@ -173,8 +256,14 @@ class ChatDetailScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: () {},
+                    icon: _isSubmitting
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(Icons.send, color: Colors.white, size: 20),
+                    onPressed: _sendMessage,
                   ),
                 ),
               ],
@@ -205,7 +294,7 @@ class ChatDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget buildMessage(String text, bool isMe) {
+  Widget buildMessage(String text, bool isMe, Timestamp? timestamp) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Align(
