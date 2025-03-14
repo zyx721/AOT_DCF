@@ -34,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   late final genai.GenerativeModel model;
   bool _isGeneratingResponse = false;
   Timer? _autoSaveTimer;
+  StreamSubscription? _historySubscription;
 
   @override
   void initState() {
@@ -42,6 +43,22 @@ class _ChatPageState extends State<ChatPage> {
     // Set up auto-save timer
     _autoSaveTimer = Timer.periodic(Duration(seconds: 1), (_) {
       ConversationManager.saveHistory();
+    });
+    // Subscribe to history updates
+    _historySubscription = ConversationManager.historyStream.listen((history) {
+      if (mounted) {
+        setState(() {
+          _conversationHistory = history;
+          _messages.clear();
+          for (var msg in history.reversed) {
+            _messages.add(ChatMessage(
+              text: msg['text'],
+              isUser: msg['isUser'],
+              timestamp: DateTime.parse(msg['timestamp']),
+            ));
+          }
+        });
+      }
     });
   }
 
@@ -517,6 +534,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _historySubscription?.cancel();
     _autoSaveTimer?.cancel();
     // Save one final time before disposing
     ConversationManager.saveHistory();

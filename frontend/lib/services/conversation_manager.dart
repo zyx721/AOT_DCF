@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 
 class ConversationManager {
@@ -7,6 +8,9 @@ class ConversationManager {
   static Map<String, dynamic> _context = {};
   static bool _isInitialized = false;
   static String _currentName = '';
+
+  static final _historyController = StreamController<List<Map<String, dynamic>>>.broadcast();
+  static Stream<List<Map<String, dynamic>>> get historyStream => _historyController.stream;
 
   static List<Map<String, dynamic>> get history => _conversationHistory;
   static Map<String, dynamic> get context => _context;
@@ -63,6 +67,7 @@ class ConversationManager {
     _conversationHistory.add(message);
     _updateContext(message);
     saveHistory();
+    _historyController.add(_conversationHistory); // Broadcast update
   }
 
   static void _updateContext(Map<String, dynamic> message) {
@@ -133,6 +138,7 @@ class ConversationManager {
     _context.clear();
     _currentName = '';
     await saveHistory();
+    _historyController.add(_conversationHistory); // Broadcast update
   }
 
   static void updateHistory(List<Map<String, dynamic>> newHistory) {
@@ -143,5 +149,10 @@ class ConversationManager {
       _updateContext(message);
     }
     saveHistory();
+  }
+
+  // Add dispose method
+  static void dispose() {
+    _historyController.close();
   }
 }
