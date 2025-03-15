@@ -330,14 +330,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         onTap: () {
           // Navigate to video details or play video
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
+            // Cover Image
             ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
                 imageUrl: data['mainImageUrl'] ?? '',
-                height: 140,
+                height: double.infinity,
                 width: double.infinity,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
@@ -350,32 +350,81 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(8),
+            // Gradient overlay and text
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                    stops: [0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Text content
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     data['title'] ?? '',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 4),
-                  Text(
-                    'By ${data['creatorName'] ?? 'Unknown'}',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                  SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.thumb_up, size: 14, color: Colors.grey),
-                      SizedBox(width: 4),
-                      Text('${data['likeCount'] ?? 0}'),
-                      SizedBox(width: 16),
-                      Icon(Icons.favorite, size: 14, color: Colors.grey),
-                      SizedBox(width: 4),
-                      Text('${data['prayCount'] ?? 0}'),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(data['creatorId'])
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return CircleAvatar(
+                              radius: 10,
+                              backgroundColor: Colors.grey[200],
+                            );
+                          }
+                          
+                          final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                          final userPhotoURL = userData?['photoURL'] as String? ?? '';
+                          
+                          return CircleAvatar(
+                            radius: 10,
+                            backgroundImage: userPhotoURL.isNotEmpty 
+                              ? NetworkImage(userPhotoURL)
+                              : null,
+                            child: userPhotoURL.isEmpty 
+                              ? Icon(Icons.person, size: 12)
+                              : null,
+                          );
+                        },
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'By ${data['creatorName'] ?? 'Unknown'}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
