@@ -3,8 +3,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'create_fund_screen.dart';
-import 'edit_fund_screen.dart';  // Add this import
-import '../../widgets/results.dart';  // Add this import
+import 'edit_fund_screen.dart';
+import '../../widgets/results.dart';
+import '../../widgets/activity.dart';  // Add this import
 
 class FundraisingScreen extends StatefulWidget {
   @override
@@ -190,13 +191,8 @@ class _FundraisingScreenState extends State<FundraisingScreen> with SingleTicker
                   ),
                 ),
                 
-                // Activity Tab (Empty for now)
-                Center(
-                  child: Text(
-                    'Activity coming soon',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
+                // Activity Tab
+                ActivityScreen(),  // This should work now with the import
               ],
             ),
           ),
