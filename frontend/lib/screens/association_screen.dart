@@ -455,7 +455,7 @@ Help make a difference by donating or sharing this cause.
                           child: const Text(
                             'Become a Part',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
