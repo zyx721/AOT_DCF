@@ -296,7 +296,10 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ReelsScreen(),
+                            builder: (context) => ReelsScreen(
+                              initialIndex: index,
+                              videos: videos,
+                            ),
                           ),
                         ),
                       );
