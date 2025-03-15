@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';  // Add this import
 import '../../widgets/modern_app_bar.dart';
 import 'chat_detail_screen.dart';
-import '../../services/chat_service.dart';  // Add this import at the top
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -186,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               chatDoc.id,
                               userData['name'] ?? 'Unknown',
                               chatData['lastMessage'] ?? '',
-                              chatData['lastMessageTime'] as Timestamp,
+                              chatData['lastMessageTime'] as Timestamp?,
                               chatData['unreadCount'] ?? 0,
                               isOnline,
                               userData['photoURL'] ?? '',
@@ -206,7 +205,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    
     final now = DateTime.now();
     final messageTime = timestamp.toDate();
     final difference = now.difference(messageTime);
@@ -223,7 +224,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildChatTile(String chatId, String name, String lastMessage, 
-                       Timestamp time, int unreadCount, bool isOnline, 
+                       Timestamp? time, int unreadCount, bool isOnline, 
                        String photoUrl, String otherUserId) {
     final timeFormatted = _formatTimestamp(time);
     
@@ -363,6 +364,28 @@ class _UserSearchDialogState extends State<UserSearchDialog> {
   final Color lightGreen = Colors.green.shade50;
   final Color mediumGreen = Colors.green.shade100;
   
+  Future<String> _createOrGetChat(String otherUserId, String currentUserId) async {
+    // Sort IDs to ensure consistent chat ID
+    final sortedIds = [currentUserId, otherUserId]..sort();
+    final chatId = '${sortedIds[0]}_${sortedIds[1]}';
+
+    final chatDoc = await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .get();
+
+    if (!chatDoc.exists) {
+      await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
+        'participants': sortedIds,
+        'lastMessage': '',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'unreadCount': 0,
+      });
+    }
+
+    return chatId;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -631,7 +654,7 @@ class _UserSearchDialogState extends State<UserSearchDialog> {
                                             size: 28,
                                           ),
                                           onPressed: () async {
-                                            final chatId = await ChatService.createOrGetChat(
+                                            final chatId = await _createOrGetChat(
                                                 userData['uid'], currentUser!.uid);
                                             Navigator.pop(context);
                                             Navigator.push(
@@ -666,4 +689,26 @@ class _UserSearchDialogState extends State<UserSearchDialog> {
       ),
     );
   }
+}
+
+Future<String> _createOrGetChat(String user1Id, String user2Id) async {
+  // Sort IDs to ensure consistent chat ID
+  final sortedIds = [user1Id, user2Id]..sort();
+  final chatId = '${sortedIds[0]}_${sortedIds[1]}';
+
+  final chatDoc = await FirebaseFirestore.instance
+      .collection('chats')
+      .doc(chatId)
+      .get();
+
+  if (!chatDoc.exists) {
+    await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
+      'participants': sortedIds,
+      'lastMessage': '',
+      'lastMessageTime': FieldValue.serverTimestamp(),
+      'unreadCount': 0,
+    });
+  }
+
+  return chatId;
 }
