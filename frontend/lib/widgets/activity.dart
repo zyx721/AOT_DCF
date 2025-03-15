@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../screens/Chat_screen/chat_detail_screen.dart';  // Add this import
+import '../services/chat_service.dart';  // Add this import at the top
 
 class ActivityScreen extends StatelessWidget {
   @override
@@ -216,37 +217,8 @@ class ActivityScreen extends StatelessWidget {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // Check if chat already exists
-    final chatQuery = await FirebaseFirestore.instance
-        .collection('chats')
-        .where('participants', arrayContains: currentUser.uid)
-        .get();
+    final chatId = await ChatService.createOrGetChat(currentUser.uid, donatorId);
 
-    String? existingChatId;
-    for (var doc in chatQuery.docs) {
-      List<String> participants = List<String>.from(doc['participants']);
-      if (participants.contains(donatorId)) {
-        existingChatId = doc.id;
-        break;
-      }
-    }
-
-    String chatId = existingChatId ?? '';
-    
-    if (existingChatId == null) {
-      // Create new chat
-      final chatRef = await FirebaseFirestore.instance
-          .collection('chats')
-          .add({
-        'participants': [currentUser.uid, donatorId],
-        'lastMessage': '',
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'unreadCount': 0,
-      });
-      chatId = chatRef.id;
-    }
-
-    // Navigate to chat detail screen
     Navigator.push(
       context,
       MaterialPageRoute(
