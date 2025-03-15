@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:frontend/services/notification.dart';
 
 class CommentsSheet extends StatefulWidget {
   final String videoId;
@@ -23,6 +24,15 @@ class _CommentsSheetState extends State<CommentsSheet> {
     if (user == null) return;
 
     try {
+      // Get video data for notification
+      final videoDoc = await FirebaseFirestore.instance
+          .collection('videos')
+          .doc(widget.videoId)
+          .get();
+      
+      final videoData = videoDoc.data();
+      
+      // Create comment
       await FirebaseFirestore.instance
           .collection('videos')
           .doc(widget.videoId)
@@ -35,6 +45,18 @@ class _CommentsSheetState extends State<CommentsSheet> {
         'timestamp': FieldValue.serverTimestamp(),
         'likes': 0,
       });
+
+      // Send notification to video creator
+      if (videoData != null && videoData['creatorId'] != user.uid) {
+        await PushNotificationService.createNotification(
+          receiverId: videoData['creatorId'],
+          senderId: user.uid,
+          type: 'COMMENT',
+          content: '${user.displayName ?? 'Someone'} commented: ${comment.length > 50 ? comment.substring(0, 47) + '...' : comment}',
+          targetId: widget.videoId,
+          additionalData: {'videoTitle': videoData['title']},
+        );
+      }
 
       _commentController.clear();
     } catch (e) {
