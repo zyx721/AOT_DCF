@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../services/drive.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
+import 'package:frontend/services/notification.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -77,6 +78,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final message = _messageController.text.trim();
       final timestamp = FieldValue.serverTimestamp();
 
+      // Send message to Firestore
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
@@ -89,6 +91,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'fileName': fileName,
       });
 
+      // Update chat metadata
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
@@ -97,6 +100,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'lastMessageTime': timestamp,
         'unreadCount': FieldValue.increment(1),
       });
+
+      // Send notification to the other user
+      await PushNotificationService.createNotification(
+        receiverId: widget.otherUserId,
+        senderId: currentUser?.uid ?? '',
+        type: 'MESSAGE',
+        content: fileUrl != null 
+            ? '${currentUser?.displayName ?? 'Someone'}: 📎 Sent you a file: $fileName'
+            : message.length > 50 
+                ? '${currentUser?.displayName ?? 'Someone'}: ${message.substring(0, 47)}...'
+                : '${currentUser?.displayName ?? 'Someone'}: $message',
+        targetId: widget.chatId,
+        additionalData: {
+          'chatId': widget.chatId,
+          'senderName': widget.name,
+          'messageType': fileUrl != null ? 'file' : 'text',
+        },
+      );
 
       _messageController.clear();
     } catch (e) {
