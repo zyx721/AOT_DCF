@@ -43,19 +43,32 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Search', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Search',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: 'Fundraisers'),
-            Tab(text: 'Videos'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabController,
+            tabs: [
+              Tab(text: 'Fundraisers'),
+              Tab(text: 'Videos'),
+            ],
+            labelColor: Colors.green,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.green,
+            indicatorWeight: 3,
+          ),
         ),
       ),
       body: Padding(
@@ -71,12 +84,16 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               },
               decoration: InputDecoration(
                 hintText: "Search...",
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, color: Colors.green),
                 filled: true,
                 fillColor: Colors.grey[200],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.green, width: 2),
                 ),
               ),
             ),
@@ -119,9 +136,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             ].map((filter) => Padding(
               padding: EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(filter),
+                label: Text(
+                  filter,
+                  style: TextStyle(
+                    color: _selectedFilter == filter ? Colors.white : Colors.black,
+                  ),
+                ),
                 selected: _selectedFilter == filter,
                 selectedColor: Colors.green,
+                backgroundColor: Colors.grey[200],
                 onSelected: (selected) {
                   setState(() {
                     _selectedFilter = selected ? filter : 'All';
@@ -141,7 +164,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               }
 
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
+                return Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                  ),
+                );
               }
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
