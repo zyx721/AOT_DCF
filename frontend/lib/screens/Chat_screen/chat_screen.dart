@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';  // Add this import
 import '../../widgets/modern_app_bar.dart';
 import 'chat_detail_screen.dart';
+import '../../services/notification.dart';  // Add this import
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -615,6 +616,14 @@ class _UserSearchDialogState extends State<UserSearchDialog> {
                                   await otherUserRef.update({
                                     'followers': FieldValue.arrayUnion([currentUser?.uid])
                                   });
+
+                                  // Send follow notification
+                                  await PushNotificationService.createNotification(
+                                    receiverId: userData['uid'],
+                                    senderId: currentUser!.uid,
+                                    type: 'Follow',
+                                    content: '${currentUser!.displayName} started following you',
+                                  );
                                 }
                               },
                                       style: ElevatedButton.styleFrom(
