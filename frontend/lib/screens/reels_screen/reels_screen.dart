@@ -6,6 +6,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'comments_sheet.dart';
 
 class ReelsScreen extends StatefulWidget {
   @override
@@ -70,23 +71,37 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     if (user == null) return;
 
     final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
-    final userLikesRef = videoRef.collection('likes').doc(user.uid);
+    final likesCollection = videoRef.collection('likes');
+    final userLikeDoc = likesCollection.doc(user.uid);
 
-    final userLikeDoc = await userLikesRef.get();
-    
-    if (userLikeDoc.exists) {
-      await userLikesRef.delete();
-      await videoRef.update({
-        'likes': FieldValue.increment(-1),
-      });
-    } else {
-      await userLikesRef.set({
-        'userId': user.uid,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      await videoRef.update({
-        'likes': FieldValue.increment(1),
-      });
+    try {
+      final docSnapshot = await userLikeDoc.get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (docSnapshot.exists) {
+        // Unlike: Remove user from likes collection and decrease counter
+        batch.delete(userLikeDoc);
+        batch.update(videoRef, {
+          'likeCount': FieldValue.increment(-1)
+        });
+      } else {
+        // Like: Add user to likes collection and increase counter
+        batch.set(userLikeDoc, {
+          'userId': user.uid,
+          'timestamp': FieldValue.serverTimestamp(),
+          'userName': user.displayName,
+        });
+        batch.update(videoRef, {
+          'likeCount': FieldValue.increment(1)
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error toggling like: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating like. Please try again.'))
+      );
     }
   }
 
@@ -95,23 +110,37 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     if (user == null) return;
 
     final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
-    final userPraysRef = videoRef.collection('prays').doc(user.uid);
+    final praysCollection = videoRef.collection('prays');
+    final userPrayDoc = praysCollection.doc(user.uid);
 
-    final userPrayDoc = await userPraysRef.get();
-    
-    if (userPrayDoc.exists) {
-      await userPraysRef.delete();
-      await videoRef.update({
-        'prays': FieldValue.increment(-1),
-      });
-    } else {
-      await userPraysRef.set({
-        'userId': user.uid,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      await videoRef.update({
-        'prays': FieldValue.increment(1),
-      });
+    try {
+      final docSnapshot = await userPrayDoc.get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (docSnapshot.exists) {
+        // Remove pray: Remove user from prays collection and decrease counter
+        batch.delete(userPrayDoc);
+        batch.update(videoRef, {
+          'prayCount': FieldValue.increment(-1)
+        });
+      } else {
+        // Add pray: Add user to prays collection and increase counter
+        batch.set(userPrayDoc, {
+          'userId': user.uid,
+          'timestamp': FieldValue.serverTimestamp(),
+          'userName': user.displayName,
+        });
+        batch.update(videoRef, {
+          'prayCount': FieldValue.increment(1)
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error toggling pray: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating pray. Please try again.'))
+      );
     }
   }
 
@@ -265,6 +294,15 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _showComments(String videoId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentsSheet(videoId: videoId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -381,15 +419,19 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                                     },
                                   ),
                                   SizedBox(height: 20),
-                                  StreamBuilder<bool>(
-                                    stream: _isPrayedStream(videoId),
+                                  StreamBuilder<QuerySnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('videos')
+                                        .doc(videoId)
+                                        .collection('comments')
+                                        .snapshots(),
                                     builder: (context, snapshot) {
-                                      final isPrayed = snapshot.data ?? false;
+                                      final commentCount = snapshot.data?.docs.length ?? 0;
                                       return _buildCircleButton(
-                                        icon: isPrayed ? Icons.emoji_events : Icons.emoji_events_outlined,
-                                        label: '${videoData['prays'] ?? 0}',
-                                        color: isPrayed ? Colors.amber : whiteColor,
-                                        onTap: () => _togglePray(videoId),
+                                        icon: Icons.comment_outlined,
+                                        label: '$commentCount',
+                                        color: whiteColor,
+                                        onTap: () => _showComments(videoId),
                                       );
                                     },
                                   ),

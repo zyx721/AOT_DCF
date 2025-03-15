@@ -162,12 +162,12 @@ class _VideoFundraisingScreenState extends State<VideoFundraisingScreen> {
         'creatorName': user?.displayName,
         'mainImageUrl': coverImageUrl,
         'videoUrl': videoUrl,
-        'likes': 0,
-        'prays': 0,
         'createdAt': FieldValue.serverTimestamp(),
         'expirationDate': Timestamp.fromDate(
           DateTime.now().add(Duration(days: 30)),
         ),
+        'likeCount': 0,  // Add initial like counter
+        'prayCount': 0,  // Add initial pray counter
       });
 
       // Show success message
