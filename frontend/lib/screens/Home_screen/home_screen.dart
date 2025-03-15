@@ -210,6 +210,32 @@ class _FundraisingHomePageState extends State<HomeScreen> {
         .snapshots();
   }
 
+  Stream<QuerySnapshot> getMoreFundraisersStream(DocumentSnapshot lastDocument) {
+    return FirebaseFirestore.instance
+        .collection('fundraisers')
+        .orderBy('createdAt', descending: true)
+        .startAfterDocument(lastDocument)
+        .limit(10)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getPaginatedFundraisers() {
+    return FirebaseFirestore.instance
+        .collection('fundraisers')
+        .orderBy('createdAt', descending: true)
+        .limit(5) // Get only first 5 for urgent
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getMoreFundraisers() {
+    return FirebaseFirestore.instance
+        .collection('fundraisers')
+        .orderBy('createdAt', descending: true)
+        .limit(10)
+        .snapshots()
+        .skip(1); // Skip the first emission to get different data
+  }
+
   void setFilter(String? filter) {
     setState(() {
       _selectedFilter = filter ?? 'All';
@@ -286,22 +312,41 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             SizedBox(height: 16), // Reduced spacing
             _buildImageSlider(),
             SizedBox(height: 16), // Reduced spacing
-            _buildFundraisingSection('Urgent Fundraising', [
-              'All',
-              'Medical',
-              'Disaster',
-              'Education',
-              'Environment',
-              'Social',
-              'Sick child',
-              'Infrastructure',
-              'Art',
-              'Orphanage',
-              'Difable',
-              'Humanity',
-              'Others'
-            ]),
-            SizedBox(height: 16), // Reduced spacing
+            StreamBuilder<QuerySnapshot>(
+              stream: getPaginatedFundraisers(),
+              builder: (context, snapshot) {
+                return _buildFundraisingSection('Urgent Fundraising', [
+                  'All',
+                  'Medical',
+                  'Disaster',
+                  'Education',
+                  'Environment',
+                  'Social',
+                  'Sick child',
+                  'Infrastructure',
+                  'Art',
+                  'Orphanage',
+                  'Difable',
+                  'Humanity',
+                  'Others'
+                ]);
+              }
+            ),
+            SizedBox(height: 24),
+            StreamBuilder<QuerySnapshot>(
+              stream: getMoreFundraisers(),
+              builder: (context, snapshot) {
+                return _buildFundraisingSection('More to Help', [
+                  'All', 
+                  'Medical',
+                  'Education',
+                  'Environment',
+                  'Social',
+                  'Others'
+                ]);
+              }
+            ),
+            SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
@@ -597,7 +642,7 @@ class _FundraisingHomePageState extends State<HomeScreen> {
 
             // Improved card list with better styling and animations
             return Container(
-              height: 320, // Increased from 260 to give more space
+              height: 265, // Reduced from 320 to 280
               child: ListView.builder(
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 scrollDirection: Axis.horizontal,
@@ -614,11 +659,10 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
                     child: Container(
-                      width: 280, // Slightly wider for better proportions
-                      // Update constraints for new height
+                      width: 260, // Reduced from 280 to 260
                       constraints: BoxConstraints(
-                        minHeight: 300,
-                        maxHeight: 320,
+                        minHeight: 260, // Reduced from 300
+                        maxHeight: 280, // Reduced from 320
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
