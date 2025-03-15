@@ -6,6 +6,7 @@ import 'create_fund_screen.dart';
 import 'edit_fund_screen.dart';
 import '../../widgets/results.dart';
 import '../../widgets/activity.dart';  // Add this import
+import 'video_fund_screen.dart';  // Add this import at the top with other imports
 
 class FundraisingScreen extends StatefulWidget {
   @override
@@ -200,9 +201,57 @@ class _FundraisingScreenState extends State<FundraisingScreen> with SingleTicker
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => CreateFundraisingScreen()),
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Create Fundraiser',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      ListTile(
+                        leading: Icon(Icons.campaign, color: Colors.green),
+                        title: Text('Normal Fundraiser'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateFundraisingScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.videocam, color: Colors.green),
+                        title: Text('Video Fundraiser'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VideoFundraisingScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
         child: Icon(Icons.add, size: 30),
