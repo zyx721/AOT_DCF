@@ -103,6 +103,7 @@ flutter:
    - assets/images/baridi.png
    - assets/animation/
    - assets/google_pay_config.json
+   - assets/documents/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
