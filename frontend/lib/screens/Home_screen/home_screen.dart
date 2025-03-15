@@ -9,6 +9,7 @@ import '../../widgets/modern_app_bar.dart'; // Add this import
 import '../association_screen.dart'; // Add this import
 import 'search_screen.dart';
 import 'package:frontend/screens/payment_screen/top_up_screen.dart'; // Ad
+import '../notification_screen/notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -259,7 +260,15 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             },
           ),
           SizedBox(width: 15),
-          Icon(Icons.notifications, size: 28),
+                    IconButton(
+            icon: Icon(Icons.notifications, size: 28),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationScreen()),
+              );
+            },
+          ),
           SizedBox(width: 15),
         ],
       ),
