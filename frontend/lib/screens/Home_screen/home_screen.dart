@@ -174,7 +174,8 @@ class _FundraisingHomePageState extends State<HomeScreen> {
         .snapshots();
   }
 
-  Stream<QuerySnapshot> getMoreFundraisersStream(DocumentSnapshot lastDocument) {
+  Stream<QuerySnapshot> getMoreFundraisersStream(
+      DocumentSnapshot lastDocument) {
     return FirebaseFirestore.instance
         .collection('fundraisers')
         .orderBy('createdAt', descending: true)
@@ -269,39 +270,37 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             _buildImageSlider(),
             SizedBox(height: 16), // Reduced spacing
             StreamBuilder<QuerySnapshot>(
-              stream: getPaginatedFundraisers(),
-              builder: (context, snapshot) {
-                return _buildFundraisingSection('Urgent Fundraising', [
-                  'All',
-                  'Medical',
-                  'Disaster',
-                  'Education',
-                  'Environment',
-                  'Social',
-                  'Sick child',
-                  'Infrastructure',
-                  'Art',
-                  'Orphanage',
-                  'Difable',
-                  'Humanity',
-                  'Others'
-                ]);
-              }
-            ),
+                stream: getPaginatedFundraisers(),
+                builder: (context, snapshot) {
+                  return _buildFundraisingSection('Urgent Fundraising', [
+                    'All',
+                    'Medical',
+                    'Disaster',
+                    'Education',
+                    'Environment',
+                    'Social',
+                    'Sick child',
+                    'Infrastructure',
+                    'Art',
+                    'Orphanage',
+                    'Difable',
+                    'Humanity',
+                    'Others'
+                  ]);
+                }),
             SizedBox(height: 24),
             StreamBuilder<QuerySnapshot>(
-              stream: getMoreFundraisers(),
-              builder: (context, snapshot) {
-                return _buildFundraisingSection('More to Help', [
-                  'All', 
-                  'Medical',
-                  'Education',
-                  'Environment',
-                  'Social',
-                  'Others'
-                ]);
-              }
-            ),
+                stream: getMoreFundraisers(),
+                builder: (context, snapshot) {
+                  return _buildFundraisingSection('More to Help', [
+                    'All',
+                    'Medical',
+                    'Education',
+                    'Environment',
+                    'Social',
+                    'Others'
+                  ]);
+                }),
             SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12.0),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:pay/pay.dart';  // Add this import
 
 class TopUpScreen extends StatefulWidget {
   @override
@@ -19,6 +20,121 @@ class _TopUpScreenState extends State<TopUpScreen> {
   final expiryController = TextEditingController();
   final cvvController = TextEditingController();
   final nameController = TextEditingController();
+
+  final _paymentItems = <PaymentItem>[];  // Add this field
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentItems.add(
+      PaymentItem(
+        amount: '0',
+        label: 'Top Up',
+        status: PaymentItemStatus.final_price,
+      ),
+    );
+  }
+
+  void _updatePaymentItems() {
+    setState(() {
+      _paymentItems[0] = PaymentItem(
+        amount: selectedAmount,
+        label: 'Top Up Amount',
+        status: PaymentItemStatus.final_price,
+      );
+    });
+  }
+
+  void _onGooglePayResult(paymentResult) {
+    debugPrint('Payment Result: $paymentResult');
+    if (mounted) {
+      if (paymentResult != null) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Payment Success'),
+            content: Text('Your top up of \$$selectedAmount was successful'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                },
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleGooglePay() async {
+    try {
+      _updatePaymentItems();
+      final googlePayButton = GooglePayButton(
+        paymentConfiguration: PaymentConfiguration.fromJsonString(
+          await DefaultAssetBundle.of(context)
+              .loadString('assets/google_pay_config.json'),
+        ),
+        paymentItems: _paymentItems,
+        type: GooglePayButtonType.pay,
+        margin: const EdgeInsets.only(top: 15.0),
+        onPaymentResult: _onGooglePayResult,
+        loadingIndicator: const Center(
+          child: CircularProgressIndicator(),
+        ),
+        onError: (error) {
+          if (mounted) {
+            debugPrint('Google Pay Error: $error');
+            if (!error.toString().toLowerCase().contains('canceled')) {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Payment Error'),
+                  content: Text('Error processing payment. Please try again.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+        },
+      );
+
+      await showModalBottomSheet(
+        context: context,
+        isDismissible: true,
+        builder: (context) => Container(
+          padding: EdgeInsets.all(20),
+          child: googlePayButton,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        debugPrint('Error setting up Google Pay: $e');
+        if (!e.toString().toLowerCase().contains('canceled')) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Setup Error'),
+              content: Text('Failed to initialize payment. Please try again.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,21 +375,39 @@ class _TopUpScreenState extends State<TopUpScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Implement payment method specific logic
+                      if (selectedPaymentMethod == 'google_pay') {
+                        _handleGooglePay();
+                      }
+                      // Handle other payment methods...
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
+                    elevation: 0, // Remove default elevation
+                    shadowColor: Colors.transparent,
+                  ).copyWith(
+                    elevation: MaterialStateProperty.resolveWith<double>((states) {
+                      if (states.contains(MaterialState.pressed)) return 0;
+                      return 4;
+                    }),
+                    backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                      if (states.contains(MaterialState.pressed)) {
+                        return Colors.green.shade600;
+                      }
+                      return Colors.green;
+                    }),
                   ),
                   child: Text(
                     "Continue",
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
@@ -293,6 +427,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
     return InkWell(
       onTap: () => setState(() => selectedPaymentMethod = method),
       child: Container(
+        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Added padding
         decoration: BoxDecoration(
           color: selected ? Colors.green.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -300,6 +435,14 @@ class _TopUpScreenState extends State<TopUpScreen> {
             color: selected ? Colors.green : Colors.grey[300]!,
             width: selected ? 2 : 1,
           ),
+          // Added shadow for better depth
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
