@@ -185,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               chatDoc.id,
                               userData['name'] ?? 'Unknown',
                               chatData['lastMessage'] ?? '',
-                              chatData['lastMessageTime'] as Timestamp,
+                              chatData['lastMessageTime'] as Timestamp?,
                               chatData['unreadCount'] ?? 0,
                               isOnline,
                               userData['photoURL'] ?? '',
@@ -205,7 +205,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    
     final now = DateTime.now();
     final messageTime = timestamp.toDate();
     final difference = now.difference(messageTime);
@@ -222,7 +224,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildChatTile(String chatId, String name, String lastMessage, 
-                       Timestamp time, int unreadCount, bool isOnline, 
+                       Timestamp? time, int unreadCount, bool isOnline, 
                        String photoUrl, String otherUserId) {
     final timeFormatted = _formatTimestamp(time);
     

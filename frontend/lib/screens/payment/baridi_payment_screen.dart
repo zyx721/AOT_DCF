@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BaridiPaymentScreen extends StatefulWidget {
   final double amount;
   final String orderNumber;
+  final String fundraiserId;
+  final bool isAnonymous;
 
   const BaridiPaymentScreen({
     Key? key,
     required this.amount,
     required this.orderNumber,
+    required this.fundraiserId,
+    this.isAnonymous = false,
   }) : super(key: key);
 
   @override
@@ -18,16 +24,59 @@ class BaridiPaymentScreen extends StatefulWidget {
 class _BaridiPaymentScreenState extends State<BaridiPaymentScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  Future<void> _saveDonationInfo() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      
+      // Create donation document
+      final donationData = {
+        'fundraiserId': widget.fundraiserId,
+        'amount': widget.amount,
+        'timestamp': FieldValue.serverTimestamp(),
+        'donatorId': widget.isAnonymous ? 'anonymous' : currentUser?.uid,
+        'paymentMethod': 'Baridi Pay',
+        'orderNumber': widget.orderNumber,
+      };
+
+      // Add donation to donations collection
+      await FirebaseFirestore.instance
+          .collection('donations')
+          .add(donationData);
+
+      // Update fundraiser's total amount and donators count
+      await FirebaseFirestore.instance
+          .collection('fundraisers')
+          .doc(widget.fundraiserId)
+          .update({
+        'funding': FieldValue.increment(widget.amount),
+        'donators': FieldValue.increment(1),
+      });
+
+      // Update user's donations list if not anonymous
+      if (!widget.isAnonymous && currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .update({
+          'donations': FieldValue.arrayUnion([widget.fundraiserId])
+        });
+      }
+    } catch (e) {
+      print('Error saving donation: $e');
+      throw e;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.close, color: Colors.black),
+          icon: Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Baridi Pay', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+        title: Text('Baridi Pay', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF336799),
         elevation: 0,
         centerTitle: true,
       ),
@@ -129,9 +178,16 @@ class _BaridiPaymentScreenState extends State<BaridiPaymentScreen> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    Navigator.of(context).pop(true);
+                    try {
+                      await _saveDonationInfo();
+                      Navigator.of(context).pop(true);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error processing payment: $e')),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(

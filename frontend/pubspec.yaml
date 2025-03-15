@@ -68,7 +68,9 @@ dependencies:
   share_plus: ^7.2.1
   langchain_openai: ^0.7.3
   font_awesome_flutter: ^10.5.0
+  percent_indicator: ^4.2.3  # Use the latest version available
   video_player: ^2.9.3
+  timeago: ^3.6.0
 
 
 dev_dependencies:

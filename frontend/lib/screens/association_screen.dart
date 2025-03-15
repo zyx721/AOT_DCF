@@ -69,17 +69,27 @@ class _AssociationScreenState extends State<AssociationScreen> {
     final userRef = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid);
+    
+    final creatorRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.fundraiser['creatorId']);
 
     try {
       if (_isFollowing) {
-        // Unfollow
+        // Unfollow - remove from both following and followers lists
         await userRef.update({
           'following': FieldValue.arrayRemove([widget.fundraiser['creatorId']])
         });
+        await creatorRef.update({
+          'followers': FieldValue.arrayRemove([currentUser.uid])
+        });
       } else {
-        // Follow
+        // Follow - add to both following and followers lists
         await userRef.update({
           'following': FieldValue.arrayUnion([widget.fundraiser['creatorId']])
+        });
+        await creatorRef.update({
+          'followers': FieldValue.arrayUnion([currentUser.uid])
         });
       }
 
@@ -356,7 +366,9 @@ class _AssociationScreenState extends State<AssociationScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DonationScreen(),
+                            builder: (context) => DonationScreen(
+                              fundraiserId: widget.fundraiser['id'],
+                            ),
                           ),
                         );
                       },
@@ -367,7 +379,7 @@ class _AssociationScreenState extends State<AssociationScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Donate Now',
                         style: TextStyle(
                           color: Colors.white,

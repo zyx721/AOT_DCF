@@ -11,6 +11,13 @@ import '../../widgets/modern_app_bar.dart';
 import '../payment/paypal_webview_screen.dart';
 
 class DonationScreen extends StatefulWidget {
+  final String fundraiserId;
+
+  const DonationScreen({
+    Key? key,
+    required this.fundraiserId,
+  }) : super(key: key);
+
   @override
   _DonationScreenState createState() => _DonationScreenState();
 }
@@ -233,6 +240,8 @@ class _DonationScreenState extends State<DonationScreen> with LifecycleMixin {
         builder: (context) => BaridiPaymentScreen(
           amount: _selectedAmount,
           orderNumber: 'DCF${DateTime.now().millisecondsSinceEpoch}',
+          fundraiserId: widget.fundraiserId,
+          isAnonymous: _isAnonymous,
         ),
       ),
     );

@@ -29,13 +29,13 @@ class VideoCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 150, // Reduced width
-        margin: EdgeInsets.only(right: 8), // Reduced margin
+        width: 150,
+        margin: EdgeInsets.only(right: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 240, // Taller height for phone shape
+              height: 240,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey[300]!, width: 1),
@@ -52,10 +52,25 @@ class VideoCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                    ),
+                    image.startsWith('assets/')
+                        ? Image.asset(
+                            image,
+                            fit: BoxFit.cover,
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: image,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: Icon(Icons.error),
+                            ),
+                          ),
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -80,7 +95,7 @@ class VideoCard extends StatelessWidget {
               ),
             ),
             Container(
-              height: 40, // Fixed height for text container
+              height: 40,
               padding: EdgeInsets.only(top: 4),
               child: Text(
                 title,
@@ -98,7 +113,6 @@ class VideoCard extends StatelessWidget {
     );
   }
 }
-
 class _FundraisingHomePageState extends State<HomeScreen> {
   String _selectedFilter = 'All';
   final currentUser = FirebaseAuth.instance.currentUser;
@@ -148,6 +162,14 @@ class _FundraisingHomePageState extends State<HomeScreen> {
           .orderBy('createdAt', descending: true)
           .snapshots();
     }
+  }
+
+  Stream<QuerySnapshot> getVideoReels() {
+    return FirebaseFirestore.instance
+        .collection('videos')
+        .orderBy('createdAt', descending: true)
+        .limit(5)
+        .snapshots();
   }
 
   void setFilter(String? filter) {
@@ -228,34 +250,51 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             ]),
             SizedBox(height: 16), // Reduced spacing
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12.0), // Reduced padding
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: Text(
                 "Watch the Impact of Your Donation",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            SizedBox(
-              height: 280, // Increased height for phone shape
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding:
-                    EdgeInsets.symmetric(horizontal: 12), // Reduced padding
-                children: [
-                  VideoCard(
-                    image: 'assets/images/profile.jpg',
-                    title: "Sarah's Surgery Was Successful",
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => ReelsScreen())),
+            StreamBuilder<QuerySnapshot>(
+              stream: getVideoReels(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Something went wrong'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                final videos = snapshot.data?.docs ?? [];
+
+                if (videos.isEmpty) {
+                  return Center(child: Text('No videos available'));
+                }
+
+                return SizedBox(
+                  height: 280,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: videos.length,
+                    itemBuilder: (context, index) {
+                      final videoData = videos[index].data() as Map<String, dynamic>;
+                      return VideoCard(
+                        image: videoData['mainImageUrl'] ?? 'assets/images/placeholder.jpg',
+                        title: videoData['title'] ?? 'Untitled',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ReelsScreen(),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  VideoCard(
-                    image: 'assets/images/profile.jpg',
-                    title: "Siamese Twins Surgery Was Successful",
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => ReelsScreen())),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ],
         ),
