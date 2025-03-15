@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:pay/pay.dart';  // Add this import
+import 'package:pay/pay.dart'; // Add this import
 import 'package:webview_flutter/webview_flutter.dart';
 import '../payment/paypal_webview_screen.dart';
 
@@ -23,7 +23,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
   final cvvController = TextEditingController();
   final nameController = TextEditingController();
 
-  final _paymentItems = <PaymentItem>[];  // Add this field
+  final _paymentItems = <PaymentItem>[]; // Add this field
 
   @override
   void initState() {
@@ -144,7 +144,8 @@ class _TopUpScreenState extends State<TopUpScreen> {
       final baseUrl = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
       final params = {
         'cmd': '_donations',
-        'business': 'aotdevimpact@gmail.com', // Your PayPal sandbox business account
+        'business':
+            'aotdevimpact@gmail.com', // Your PayPal sandbox business account
         'item_name': 'Top Up',
         'amount': selectedAmount,
         'currency_code': 'USD',
@@ -165,7 +166,8 @@ class _TopUpScreenState extends State<TopUpScreen> {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: Text('Payment Success'),
-                    content: Text('Your top up of \$$selectedAmount was successful'),
+                    content:
+                        Text('Your top up of \$$selectedAmount was successful'),
                     actions: [
                       TextButton(
                         onPressed: () {
@@ -459,11 +461,13 @@ class _TopUpScreenState extends State<TopUpScreen> {
                     elevation: 0, // Remove default elevation
                     shadowColor: Colors.transparent,
                   ).copyWith(
-                    elevation: MaterialStateProperty.resolveWith<double>((states) {
+                    elevation:
+                        MaterialStateProperty.resolveWith<double>((states) {
                       if (states.contains(MaterialState.pressed)) return 0;
                       return 4;
                     }),
-                    backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                    backgroundColor:
+                        MaterialStateProperty.resolveWith<Color>((states) {
                       if (states.contains(MaterialState.pressed)) {
                         return Colors.green.shade600;
                       }
@@ -495,7 +499,8 @@ class _TopUpScreenState extends State<TopUpScreen> {
     return InkWell(
       onTap: () => setState(() => selectedPaymentMethod = method),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Added padding
+        padding:
+            EdgeInsets.symmetric(vertical: 16, horizontal: 12), // Added padding
         decoration: BoxDecoration(
           color: selected ? Colors.green.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(12),

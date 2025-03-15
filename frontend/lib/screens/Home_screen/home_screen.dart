@@ -65,7 +65,8 @@ class VideoCard extends StatelessWidget {
                               color: Colors.grey[200],
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.green),
                                 ),
                               ),
                             ),
@@ -112,7 +113,8 @@ class VideoCard extends StatelessWidget {
                           ),
                           SizedBox(height: 8),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
@@ -231,10 +233,11 @@ class _FundraisingHomePageState extends State<HomeScreen> {
   Stream<QuerySnapshot> getMoreFundraisers() {
     return FirebaseFirestore.instance
         .collection('fundraisers')
-        .orderBy('createdAt', descending: true)
+        .orderBy('donators',
+            descending: true) // Order by number of donors first
+        .orderBy('funding', descending: true) // Then by amount raised
         .limit(10)
-        .snapshots()
-        .skip(1); // Skip the first emission to get different data
+        .snapshots();
   }
 
   void setFilter(String? filter) {

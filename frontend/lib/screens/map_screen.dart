@@ -163,58 +163,213 @@ class _MapScreenState extends State<MapScreen> {
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
-                imageUrl:
-                    fundraiser['mainImageUrl'] ?? 'assets/placeholder.jpg',
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, -5),
+              ),
+            ],
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Image with category badge
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: CachedNetworkImage(
+                      imageUrl: fundraiser['mainImageUrl'] ??
+                          'assets/placeholder.jpg',
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.error),
+                      ),
                     ),
                   ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.error, color: Colors.red),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              fundraiser['title'] ?? 'Untitled',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            if (distance != null)
-              Text('Distance: ${distance.toStringAsFixed(1)} km'),
-            ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AssociationScreen(
-                    fundraiser: fundraiser,
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color:
+                            _getMarkerColor(fundraiser['category'] ?? 'default')
+                                .withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                              _getMarkerIcon(
+                                  fundraiser['category'] ?? 'default'),
+                              color: Colors.white,
+                              size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            (fundraiser['category'] ?? 'General')
+                                .toString()
+                                .toUpperCase(),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-              child: const Text('View Details'),
-            ),
-            TextButton(
-              onPressed: () =>
-                  _openDirections(fundraiser['location'] as LatLng),
-              child: const Text('Get Directions'),
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              // Title and status
+              Text(
+                fundraiser['title'] ?? 'Untitled',
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+
+              // Organization info
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundImage: NetworkImage(
+                        fundraiser['organizationLogo'] ??
+                            'assets/default_logo.png'),
+                    radius: 15,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    fundraiser['organizationName'] ?? 'Unknown Organization',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+
+              // Progress bar and stats
+              if (fundraiser['goalAmount'] != null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${((fundraiser['currentAmount'] ?? 0) / fundraiser['goalAmount'] * 100).toStringAsFixed(1)}%',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${fundraiser['currentAmount']} / ${fundraiser['goalAmount']} DZD',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: (fundraiser['currentAmount'] ?? 0) /
+                      fundraiser['goalAmount'],
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      _getMarkerColor(fundraiser['category'] ?? 'default')),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Location and distance
+              if (distance != null)
+                ListTile(
+                  leading: const Icon(Icons.location_on, color: Colors.grey),
+                  title: Text('${distance.toStringAsFixed(1)} km away'),
+                  subtitle:
+                      Text(fundraiser['address'] ?? 'No address provided'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+              // Description
+              if (fundraiser['description'] != null) ...[
+                const SizedBox(height: 15),
+                Text(
+                  fundraiser['description'],
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              AssociationScreen(fundraiser: fundraiser),
+                        ),
+                      ),
+                      icon: const Icon(Icons.info_outline),
+                      label: const Text('View Details'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _openDirections(fundraiser['location'] as LatLng),
+                      icon: const Icon(Icons.directions),
+                      label: const Text('Get Directions'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
