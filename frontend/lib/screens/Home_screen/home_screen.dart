@@ -7,6 +7,7 @@ import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
 import 'package:frontend/screens/reels_screen/reels_screen.dart';
 import '../../widgets/modern_app_bar.dart'; // Add this import
 import '../association_screen.dart'; // Add this import
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -181,11 +182,19 @@ class _FundraisingHomePageState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const ModernAppBar(
+      appBar: ModernAppBar(
         title: 'Home',
         showLogo: true,
         actions: [
-          Icon(Icons.search, size: 28),
+          IconButton(
+            icon: Icon(Icons.search, size: 28),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SearchPage()),
+              );
+            },
+          ),
           SizedBox(width: 15),
           Icon(Icons.notifications, size: 28),
           SizedBox(width: 15),
