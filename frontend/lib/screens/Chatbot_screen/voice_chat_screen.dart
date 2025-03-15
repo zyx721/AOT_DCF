@@ -8,18 +8,21 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'package:frontend/services/conversation_manager.dart';
+import 'package:frontend/services/role_matcher.dart';
 
 class VoiceChatScreen extends StatefulWidget {
   final WebSocketChannel channel;
   final Stream messageStream;
   final Function(List<Map<String, dynamic>>) onConversationComplete;
   final List<Map<String, dynamic>> initialConversation; // Add this line
+  final RoleMatcher roleMatcher; // Add this line
 
   const VoiceChatScreen({
     Key? key,
     required this.channel,
     required this.messageStream,
     required this.onConversationComplete,
+    required this.roleMatcher, // Add this parameter
     this.initialConversation = const [], // Add this parameter
   }) : super(key: key);
 
@@ -44,7 +47,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   @override
   void initState() {
     super.initState();
-    // Update this section to properly load history
+    // Load the complete conversation history from ConversationManager
     _conversation = List.from(ConversationManager.history);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -57,6 +60,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
       );
       Future.delayed(Duration(milliseconds: 500), _startListening);
       _setupMessageListener();
+      // Set up history listener
+      ConversationManager.historyStream.listen((history) {
+        if (mounted) {
+          setState(() {
+            _conversation = List.from(history);
+          });
+        }
+      });
     });
   }
 
@@ -171,11 +182,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   }
 
   void _saveConversationToHistory(Map<String, dynamic> message) {
-    _conversation.add(message);
     ConversationManager.addMessage(message);
-    // Print conversation for debugging
-    _logMessage(
-        '${message['isUser'] ? "User" : "Bot"}: ${message['text']}\nTimestamp: ${message['timestamp']}');
+    widget.onConversationComplete(ConversationManager.history);
   }
 
   Future<void> _handleSpeechResult(String text) async {
@@ -198,23 +206,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
     try {
       _logMessage('Generating response for: $text');
 
-      // Get full conversation history from ConversationManager
-      final conversationContext = StringBuffer();
+      // Use RoleMatcher to generate contextual prompt
+      final contextualPrompt = widget.roleMatcher.generateRoleMatchPrompt(text);
+      _logMessage('Using contextual prompt: $contextualPrompt');
 
-      // Add all historical messages for context
-      final allMessages = ConversationManager.history;
-      for (var msg in allMessages) {
-        conversationContext
-            .writeln('${msg['isUser'] ? 'User' : 'Assistant'}: ${msg['text']}');
-      }
-
-      // Add current message
-      conversationContext.writeln('User: $text');
-
-      _logMessage(
-          'Using conversation context: ${conversationContext.toString()}');
-
-      final content = [genai.Content.text(conversationContext.toString())];
+      final content = [genai.Content.text(contextualPrompt)];
       final response = await model.generateContent(content);
       final responseText =
           response.text ?? "Sorry, I couldn't generate a response";
@@ -511,8 +507,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
 
   @override
   void dispose() {
-    ConversationManager.updateHistory(_conversation);
-    // ...existing code...
+    // Remove extra history update since ConversationManager handles it
     flutterTts.stop();
     _logMessage('Stopping TTS and cleaning up');
     _logMessage('Conversation history:');

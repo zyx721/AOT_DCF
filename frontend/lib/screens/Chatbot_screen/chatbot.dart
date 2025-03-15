@@ -557,6 +557,7 @@ Location:
           messageStream: broadcastStream,
           onConversationComplete: (conversation) {},
           initialConversation: _conversationHistory,
+          roleMatcher: _roleMatcher, // Add this line
         ),
       ),
     );
