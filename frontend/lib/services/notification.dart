@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:googleapis_auth/auth_io.dart' as auth;
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PushNotificationService {
   static Future<String> getAccessToken() async {
@@ -64,5 +64,81 @@ class PushNotificationService {
       print('Failed to send notification');
       print('Response: ${response.body}');
     }
+  }
+
+  static Future<void> createNotification({
+    required String receiverId,
+    required String senderId,
+    required String type,
+    required String content,
+    String? targetId,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      // Get sender info
+      final senderDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(senderId)
+          .get();
+      
+      final senderName = senderDoc.data()?['name'] ?? 'Someone';
+      final senderPhoto = senderDoc.data()?['photoURL'];
+
+      // Create notification document
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .add({
+        'receiverId': receiverId,
+        'senderId': senderId,
+        'senderName': senderName,
+        'senderPhoto': senderPhoto,
+        'type': type,
+        'content': content,
+        'targetId': targetId,
+        'additionalData': additionalData,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+
+      // Get receiver's device token
+      final receiverDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(receiverId)
+          .get();
+      
+      final deviceToken = receiverDoc.data()?['deviceToken'];
+
+      if (deviceToken != null) {
+        // Send push notification
+        await sendNotification(
+          deviceToken,
+          'New ${type.toLowerCase()}',
+          content,
+          {
+            'type': type,
+            'targetId': targetId ?? '',
+            'senderId': senderId,
+            ...?additionalData,
+          },
+        );
+      }
+    } catch (e) {
+      print('Error creating notification: $e');
+    }
+  }
+
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    await FirebaseFirestore.instance
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+
+  static Stream<QuerySnapshot> getNotificationsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('notifications')
+        .where('receiverId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
   }
 }

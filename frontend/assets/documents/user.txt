@@ -1,0 +1,11 @@
+{
+  'background': 'Name: benmati ziad\nOccupation: Primary school teacher',
+  'capacity': 'Donation Capacity: Limited financial contribution but 15+ hours weekly volunteering',
+  'motivations': 'Motivations: Community building, making tangible impact, creating sustainable systems',
+  'skills': 'Skills and Strengths: Organizational abilities, leadership, communication across diverse groups, trilingual (Arabic, French, English), creative problem-solving',
+  'interests': 'Interests: Community development, educational outreach, traditional Algerian cooking, cultural heritage preservation',
+  'experience': 'Experience: 8 years teaching, volunteer coordinator at local mosque, managed food distribution during Covid-19, organized teacher-parent committees',
+  'values': 'Values: Tangible impact, integrity, cultural sensitivity, work-life balance, dignity-centered approach',
+  'goals': 'Goals: Develop year-round food security program, create replicable model for community initiatives, transition to non-profit sector',
+  'context': 'Context: Seeking leadership role in volunteer coordination, available evenings and weekends'
+}

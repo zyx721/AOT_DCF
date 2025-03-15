@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'upload_screen.dart';
-import 'notification_screen.dart';
-import 'profile_screen.dart';
-import 'map_screen.dart';
+import 'package:frontend/screens/map_screen.dart';
+import 'Home_screen/home_screen.dart';
+import 'Chatbot_screen/chatbot.dart'; // Updated import
+import 'Fundraising_screen/fundraising_screen.dart';
+import 'Chat_screen/chat_screen.dart';
+import 'Profile_screen/profile_screen.dart';
 
 class NavBarScreen extends StatefulWidget {
   const NavBarScreen({Key? key}) : super(key: key);
@@ -13,45 +15,80 @@ class NavBarScreen extends StatefulWidget {
 
 class _NavBarScreenState extends State<NavBarScreen> {
   int _selectedIndex = 0;
-  
+
   final List<Widget> _pages = [
-    const UploadScreen(),
+    HomeScreen(),
     const MapScreen(),
-    const NotificationScreen(),
+    FundraisingScreen(),
+    const ChatScreen(),
     const ProfileScreen(),
   ];
+
+  Widget _buildNavItem(IconData icon, int index, String label) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF57AB7D)
+                  : const Color(0xFF57AB7D).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF57AB7D),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFF57AB7D) : Colors.grey,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.cloud_upload),
-            label: 'Upload',
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Notifications',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.deepPurple,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(Icons.home_rounded, 0, 'Home'),
+            _buildNavItem(Icons.map_rounded, 1, 'Map'),
+            _buildNavItem(Icons.volunteer_activism_rounded, 2, 'Fundraise'),
+            _buildNavItem(Icons.chat_rounded, 3, 'Chat'),
+            _buildNavItem(Icons.person_rounded, 4, 'Profile'),
+          ],
+        ),
       ),
     );
   }
