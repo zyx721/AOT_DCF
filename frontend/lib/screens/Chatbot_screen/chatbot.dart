@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:frontend/screens/Chatbot_screen/voice_chat_screen.dart';
 import 'package:frontend/screens/colors.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -13,6 +16,8 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:frontend/services/conversation_manager.dart';
 import 'package:frontend/widgets/modern_app_bar.dart';
 import 'package:lottie/lottie.dart'; // Add this import
+import 'package:frontend/services/vector_store.dart';
+import 'package:frontend/services/role_matcher.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -35,11 +40,33 @@ class _ChatPageState extends State<ChatPage> {
   bool _isGeneratingResponse = false;
   Timer? _autoSaveTimer;
   StreamSubscription? _historySubscription;
+  String? _currentFileContent;
+  String? _currentFileName;
+  final VectorStore _vectorStore = VectorStore();
+  final RoleMatcher _roleMatcher = RoleMatcher();
+  bool _showRoleConfirmation = false;
+  String? _suggestedRole;
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    _setupRoleMatcher();
+    
+    // Add initial suggestion message
+    WidgetsBinding.instance?.addPostFrameCallback((_) {
+      if (_messages.isEmpty) {
+        setState(() {
+          _messages.insert(0, ChatMessage(
+            text: "What roles would be best for me?",
+            isUser: false,
+            timestamp: DateTime.now(),
+            isSuggestion: true,
+          ));
+        });
+      }
+    });
+    
     // Set up auto-save timer
     _autoSaveTimer = Timer.periodic(Duration(seconds: 1), (_) {
       ConversationManager.saveHistory();
@@ -69,6 +96,60 @@ class _ChatPageState extends State<ChatPage> {
     _connectWebSocket();
     _setupAudioPlayerListeners();
     _initializeGemini();
+  }
+
+  Future<void> _setupRoleMatcher() async {
+    try {
+      // Load the campaign document
+      final documentContent = await rootBundle.loadString('assets/documents/document.txt');
+      
+      // Create user profile from user.txt
+      final userContent = await rootBundle.loadString('assets/documents/user.txt');
+      final userProfile = _parseUserProfile(userContent);
+      
+      _roleMatcher.initializeWithDocuments(
+        documentContent: documentContent,
+        userProfile: userProfile,
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages.insert(0, ChatMessage(
+            text: "Click here to find the best volunteering roles based on your profile and interests",
+            isUser: false,
+            timestamp: DateTime.now(),
+            isSuggestion: true,
+          ));
+        });
+      }
+    } catch (e) {
+      print('Error setting up role matcher: $e');
+    }
+  }
+
+  Map<String, dynamic> _parseUserProfile(String content) {
+    final lines = content.split('\n');
+    final profile = <String, dynamic>{};
+    
+    for (var line in lines) {
+      if (line.contains('|')) {
+        final parts = line.split('|');
+        profile['name'] = parts[0].trim();
+      } else if (line.contains(':')) {
+        final parts = line.split(':');
+        final key = parts[0].trim().toLowerCase().replaceAll(' ', '_');
+        dynamic value = parts[1].trim();
+        
+        // Handle lists
+        if (value.startsWith('[') && value.endsWith(']')) {
+          value = value.substring(1, value.length - 1).split(',').map((e) => e.trim()).toList();
+        }
+        
+        profile[key] = value;
+      }
+    }
+    
+    return profile;
   }
 
   Future<void> _loadConversationHistory() async {
@@ -230,18 +311,33 @@ class _ChatPageState extends State<ChatPage> {
       'timestamp': DateTime.now().toIso8601String(),
     };
 
-    // Only use ConversationManager to handle messages
     ConversationManager.addMessage(userMessage);
     setState(() => _isGeneratingResponse = true);
 
     try {
-      final contextPrompt = ConversationManager.getContextPrompt();
-      final prompt = contextPrompt + "\nUser: " + text;
+      String prompt;
+      if (text.toLowerCase().contains('role') || text.toLowerCase().contains('fit') || 
+          text.toLowerCase().contains('position') || text.toLowerCase().contains('volunteer')) {
+        // Use role matching prompt for role-related queries
+        prompt = _roleMatcher.generateRoleMatchPrompt();
+      } else {
+        // Regular query handling
+        final relevantDocs = _vectorStore.search(text, topK: 3);
+        prompt = "You are a helpful AI assistant for a Ramadan charity campaign. ";
+        
+        if (relevantDocs.isNotEmpty) {
+          prompt += "\nHere are some relevant details from the campaign documents:\n\n";
+          for (var doc in relevantDocs) {
+            prompt += "From ${doc.source}:\n${doc.content}\n\n";
+          }
+        }
+        
+        prompt += "\nBased on this context, please respond to: $text";
+      }
 
       final content = [genai.Content.text(prompt)];
       final response = await model.generateContent(content);
-      final responseText =
-          response.text ?? "Sorry, I couldn't generate a response";
+      final responseText = response.text ?? "Sorry, I couldn't generate a response";
 
       final botMessage = {
         'text': responseText,
@@ -252,6 +348,14 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         ConversationManager.addMessage(botMessage);
         setState(() => _isGeneratingResponse = false);
+
+        // Check if response contains role suggestions and show confirmation
+        if (text.toLowerCase().contains('role') || text.toLowerCase().contains('fit')) {
+          setState(() {
+            _showRoleConfirmation = true;
+            _suggestedRole = responseText; // Store the full response
+          });
+        }
       }
     } catch (e) {
       print('Error generating response: $e');
@@ -264,6 +368,48 @@ class _ChatPageState extends State<ChatPage> {
         };
         ConversationManager.addMessage(errorMessage);
       }
+    }
+  }
+
+  Future<void> _pickAndReadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt', 'md', 'json', 'yaml', 'dart', 'js', 'py', 'html', 'css'],
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final content = await file.readAsString();
+        
+        // Split content into chunks (simple approach - split by paragraphs)
+        final chunks = content.split(RegExp(r'\n\s*\n'));
+        
+        // Add chunks to vector store
+        for (var i = 0; i < chunks.length; i++) {
+          if (chunks[i].trim().isNotEmpty) {
+            _vectorStore.addDocument(
+              chunks[i].trim(),
+              '${result.files.single.name}:chunk_$i',
+            );
+          }
+        }
+
+        setState(() {
+          _currentFileContent = content;
+          _currentFileName = result.files.single.name;
+        });
+        
+        // Add a system message indicating file was loaded
+        final systemMessage = {
+          'text': 'File loaded: $_currentFileName',
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        };
+        ConversationManager.addMessage(systemMessage);
+      }
+    } catch (e) {
+      print('Error picking/reading file: $e');
     }
   }
 
@@ -389,6 +535,7 @@ class _ChatPageState extends State<ChatPage> {
                     },
                   ),
                 ),
+                _buildRoleConfirmation(),
                 _buildMessageInput(),
               ],
             ),
@@ -435,50 +582,125 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessage(ChatMessage message) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment:
-            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!message.isUser) _buildAvatar(isUser: false),
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.7,
-            ),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: message.isUser
-                  ? const LinearGradient(
-                      colors: [
-                        Color.fromARGB(255, 26, 126, 51),
-                        Color.fromARGB(120, 26, 126, 51),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : const LinearGradient(
-                      colors: [
-                        Color.fromARGB(120, 26, 126, 51),
-                        Color.fromARGB(65, 26, 126, 51),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              message.text,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 14,
+    return GestureDetector(
+      onTap: message.isSuggestion ? () => _handleSubmitted(_roleMatcher.generateRoleMatchPrompt()) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisAlignment:
+              message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!message.isUser) _buildAvatar(isUser: false),
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: message.isSuggestion
+                    ? const LinearGradient(
+                        colors: [
+                          Color.fromARGB(255, 100, 149, 237),
+                          Color.fromARGB(120, 100, 149, 237),
+                        ],
+                      )
+                    : message.isUser
+                        ? const LinearGradient(
+                            colors: [
+                              Color.fromARGB(255, 26, 126, 51),
+                              Color.fromARGB(120, 26, 126, 51),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          )
+                        : const LinearGradient(
+                            colors: [
+                              Color.fromARGB(120, 26, 126, 51),
+                              Color.fromARGB(65, 26, 126, 51),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                message.text,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
               ),
             ),
+            if (message.isUser) _buildAvatar(isUser: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleConfirmation() {
+    if (!_showRoleConfirmation || _suggestedRole == null) return SizedBox.shrink();
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            offset: Offset(0, 2),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.1),
           ),
-          if (message.isUser) _buildAvatar(isUser: true),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Would you like to accept this role?',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: () => _handleRoleConfirmation(true),
+                child: Text('Accept'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => _handleRoleConfirmation(false),
+                child: Text('Decline'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  void _handleRoleConfirmation(bool accepted) {
+    if (accepted) {
+      // Implement role acceptance logic
+      ConversationManager.addMessage({
+        'text': 'Great! You have accepted the role. Our team will contact you soon.',
+        'isUser': false,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    }
+    setState(() {
+      _showRoleConfirmation = false;
+      _suggestedRole = null;
+    });
   }
 
   Widget _buildMessageInput() {
@@ -499,6 +721,11 @@ class _ChatPageState extends State<ChatPage> {
           IconButton(
             icon: const Icon(Icons.mic),
             onPressed: _openVoiceChatScreen,
+            color: Colors.grey,
+          ),
+          IconButton(
+            icon: const Icon(Icons.attach_file),
+            onPressed: _pickAndReadFile,
             color: Colors.grey,
           ),
           Expanded(
@@ -552,10 +779,12 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final bool isSuggestion;
 
   ChatMessage({
     required this.text,
     required this.isUser,
     required this.timestamp,
+    this.isSuggestion = false,
   });
 }
