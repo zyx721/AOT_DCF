@@ -473,17 +473,69 @@ Location:
   }
 
   void _handleRoleConfirmation(bool accepted) {
+    if (accepted && _selectedRole != null) {
+      // Show acceptance snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Role Accepted!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        'You will be contacted soon with further details',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          backgroundColor: Color.fromARGB(255, 26, 126, 51),
+          duration: Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+
+      // Add acceptance message to conversation
+      ConversationManager.addMessage({
+        'text':
+            'You have accepted the role: $_selectedRole\n\nRole Details:\n$_selectedRoleDetails\n\nOur team will contact you soon with further details.',
+        'isUser': false,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // Navigate back to home screen after a short delay
+      Future.delayed(Duration(milliseconds: 500), () {
+        // Pop until we reach the home screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+
+        // Optional: You can also use a named route if you have one set up
+        // Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      });
+    }
+
     setState(() {
       _showRoleDetails = false;
       _showRoleOptions = false;
-      if (accepted && _selectedRole != null) {
-        ConversationManager.addMessage({
-          'text':
-              'You have accepted the role: $_selectedRole\n\nRole Details:\n$_selectedRoleDetails\n\nOur team will contact you soon with further details.',
-          'isUser': false,
-          'timestamp': DateTime.now().toIso8601String(),
-        });
-      }
       _selectedRole = null;
       _selectedRoleDetails = null;
     });
@@ -834,156 +886,128 @@ Location:
     }
 
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 10,
-      left: 0,
-      right: 0,
+      // Move it to the top of the screen below app bar
+      top: kToolbarHeight - 50,
+      left: 16,
+      right: 16,
       child: Material(
         color: Colors.transparent,
-        child: SafeArea(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
+        child: Container(
+          // Reduce overall container height
+          constraints: BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Compact header
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color:
-                              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.volunteer_activism,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.volunteer_activism,
+                      color: Color.fromARGB(255, 26, 126, 51),
+                      size: 16,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Available Roles',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
                           color: Color.fromARGB(255, 26, 126, 51),
-                          size: 20,
                         ),
                       ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Recommended Roles',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color: Color.fromARGB(255, 26, 126, 51),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          size: 20,
-                          color: Colors.grey[600],
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _showRoleOptions = false;
-                            _detectedRoles = [];
-                          });
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: BoxConstraints(),
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, size: 16),
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                      onPressed: () {
+                        setState(() {
+                          _showRoleOptions = false;
+                          _detectedRoles = [];
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                Container(
-                  constraints: BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _detectedRoles.length,
-                    itemBuilder: (context, index) {
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _handleRoleSelection(index),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: Color.fromARGB(255, 26, 126, 51)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '#${index + 1}',
-                                      style: GoogleFonts.poppins(
-                                        color: Color.fromARGB(255, 26, 126, 51),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _detectedRoles[index].replaceAll(
-                                            RegExp(r'^#\d+:\s*'), ''),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey[800],
-                                        ),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'Tap to select this role',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: Colors.grey[500],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  size: 16,
-                                  color: Colors.grey[400],
-                                ),
-                              ],
-                            ),
-                          ),
+              ),
+              // Compact role list
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  itemCount: _detectedRoles.length,
+                  itemBuilder: (context, index) {
+                    return InkWell(
+                      onTap: () => _handleRoleSelection(index),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                      );
-                    },
-                  ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Color.fromARGB(255, 26, 126, 51)
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '#${index + 1}',
+                                  style: GoogleFonts.poppins(
+                                    color: Color.fromARGB(255, 26, 126, 51),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _detectedRoles[index]
+                                    .replaceAll(RegExp(r'^#\d+:\s*'), ''),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 12,
+                              color: Colors.grey[400],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

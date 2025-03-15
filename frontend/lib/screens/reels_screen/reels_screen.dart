@@ -16,7 +16,7 @@ class ReelsScreen extends StatefulWidget {
   final String? searchQuery;
 
   const ReelsScreen({
-    Key? key, 
+    Key? key,
     this.initialIndex = 0,
     this.videos,
     this.searchQuery,
@@ -52,7 +52,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    
+
     if (widget.videos != null) {
       setState(() {
         _videoDocuments = widget.videos!;
@@ -70,13 +70,15 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   Future<void> _loadVideos() async {
     try {
       setState(() => _isLoadingVideos = true);
-      
-      Query query = FirebaseFirestore.instance.collection('videos')
+
+      Query query = FirebaseFirestore.instance
+          .collection('videos')
           .orderBy('createdAt', descending: true);
 
       // Apply search filter if search query exists
       if (widget.searchQuery?.isNotEmpty ?? false) {
-        query = query.where('searchKeywords', arrayContains: widget.searchQuery!.toLowerCase());
+        query = query.where('searchKeywords',
+            arrayContains: widget.searchQuery!.toLowerCase());
       }
 
       final videoSnapshots = await query.get();
@@ -101,7 +103,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
+    final videoRef =
+        FirebaseFirestore.instance.collection('videos').doc(videoId);
     final likesCollection = videoRef.collection('likes');
     final userLikeDoc = likesCollection.doc(user.uid);
 
@@ -112,9 +115,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       if (docSnapshot.exists) {
         // Unlike: Remove user from likes collection and decrease counter
         batch.delete(userLikeDoc);
-        batch.update(videoRef, {
-          'likeCount': FieldValue.increment(-1)
-        });
+        batch.update(videoRef, {'likeCount': FieldValue.increment(-1)});
       } else {
         // Like: Add user to likes collection and increase counter
         batch.set(userLikeDoc, {
@@ -122,17 +123,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
           'timestamp': FieldValue.serverTimestamp(),
           'userName': user.displayName,
         });
-        batch.update(videoRef, {
-          'likeCount': FieldValue.increment(1)
-        });
+        batch.update(videoRef, {'likeCount': FieldValue.increment(1)});
       }
 
       await batch.commit();
     } catch (e) {
       print('Error toggling like: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating like. Please try again.'))
-      );
+          SnackBar(content: Text('Error updating like. Please try again.')));
     }
   }
 
@@ -140,7 +138,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
+    final videoRef =
+        FirebaseFirestore.instance.collection('videos').doc(videoId);
     final praysCollection = videoRef.collection('prays');
     final userPrayDoc = praysCollection.doc(user.uid);
 
@@ -151,9 +150,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       if (docSnapshot.exists) {
         // Remove pray: Remove user from prays collection and decrease counter
         batch.delete(userPrayDoc);
-        batch.update(videoRef, {
-          'prayCount': FieldValue.increment(-1)
-        });
+        batch.update(videoRef, {'prayCount': FieldValue.increment(-1)});
       } else {
         // Add pray: Add user to prays collection and increase counter
         batch.set(userPrayDoc, {
@@ -161,17 +158,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
           'timestamp': FieldValue.serverTimestamp(),
           'userName': user.displayName,
         });
-        batch.update(videoRef, {
-          'prayCount': FieldValue.increment(1)
-        });
+        batch.update(videoRef, {'prayCount': FieldValue.increment(1)});
       }
 
       await batch.commit();
     } catch (e) {
       print('Error toggling pray: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating pray. Please try again.'))
-      );
+          SnackBar(content: Text('Error updating pray. Please try again.')));
     }
   }
 
@@ -206,7 +200,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       url,
       withProgress: true,
     );
-    
+
     File? cachedFile;
     await for (final event in fileStream) {
       if (event is FileInfo) {
@@ -220,33 +214,33 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   Future<void> _preloadVideos(int currentIndex) async {
     // Load current video
     await _loadAndInitializeVideo(currentIndex);
-    
+
     // Preload next video if available
     if (currentIndex < _videoDocuments.length - 1) {
       _precacheVideo(currentIndex + 1);
     }
-    
+
     // Preload previous video if available
     if (currentIndex > 0) {
       _precacheVideo(currentIndex - 1);
     }
-    
+
     // Clean up old cached videos
     _cleanupCache(currentIndex);
   }
 
   Future<void> _precacheVideo(int index) async {
     if (_controllerCache.containsKey(index)) return;
-    
+
     try {
       final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
       final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
       final controller = VideoPlayerController.file(cachedFile)
         ..setLooping(true);
-      
+
       _initializingFutures[index] = controller.initialize();
       _controllerCache[index] = controller;
-      
+
       // Start buffering but don't play
       await controller.initialize();
     } catch (e) {
@@ -283,7 +277,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
 
       final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
       final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
-      
+
       if (_controllerCache.containsKey(index)) {
         _currentController = _controllerCache[index];
       } else {
@@ -341,12 +335,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
-    final otherUserRef = FirebaseFirestore.instance.collection('users').doc(creatorId);
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+    final otherUserRef =
+        FirebaseFirestore.instance.collection('users').doc(creatorId);
 
     try {
       final isFollowing = await _isFollowingUser(creatorId);
-      
+
       if (isFollowing) {
         await userRef.update({
           'following': FieldValue.arrayRemove([creatorId])
@@ -364,9 +360,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       print('Error toggling follow: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating follow status. Please try again.'))
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error updating follow status. Please try again.')));
     }
   }
 
@@ -387,7 +382,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     final String videoTitle = videoData['title'] ?? 'Check out this video';
     final String videoUrl = videoData['videoUrl'] ?? '';
     final String creatorName = videoData['creatorName'] ?? 'Anonymous';
-    
+
     final String shareText = '''
 $videoTitle
 
@@ -401,8 +396,7 @@ Watch here: $videoUrl
     } catch (e) {
       print('Error sharing video: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sharing video. Please try again.'))
-      );
+          SnackBar(content: Text('Error sharing video. Please try again.')));
     }
   }
 
@@ -417,7 +411,8 @@ Watch here: $videoUrl
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_loadingError!, style: TextStyle(color: Colors.white)),
+                      Text(_loadingError!,
+                          style: TextStyle(color: Colors.white)),
                       ElevatedButton(
                         onPressed: _loadVideos,
                         child: Text('Retry'),
@@ -433,7 +428,8 @@ Watch here: $videoUrl
                       itemCount: _videoDocuments.length,
                       onPageChanged: _onPageChanged,
                       itemBuilder: (context, index) {
-                        final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
+                        final videoData = _videoDocuments[index].data()
+                            as Map<String, dynamic>;
                         final videoId = _videoDocuments[index].id;
 
                         if (index != _currentIndex) {
@@ -449,7 +445,8 @@ Watch here: $videoUrl
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, color: Colors.white, size: 48),
+                                Icon(Icons.error_outline,
+                                    color: Colors.white, size: 48),
                                 SizedBox(height: 16),
                                 Text(
                                   _error!,
@@ -458,7 +455,8 @@ Watch here: $videoUrl
                                 ),
                                 SizedBox(height: 16),
                                 TextButton(
-                                  onPressed: () => _loadAndInitializeVideo(_currentIndex),
+                                  onPressed: () =>
+                                      _loadAndInitializeVideo(_currentIndex),
                                   child: Text('Retry'),
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.white,
@@ -497,7 +495,8 @@ Watch here: $videoUrl
                                   fit: BoxFit.cover,
                                   child: SizedBox(
                                     width: _currentController!.value.size.width,
-                                    height: _currentController!.value.size.height,
+                                    height:
+                                        _currentController!.value.size.height,
                                     child: VideoPlayer(_currentController!),
                                   ),
                                 ),
@@ -515,24 +514,32 @@ Watch here: $videoUrl
                                         .doc(videoId)
                                         .snapshots(),
                                     builder: (context, snapshot) {
-                                      if (!snapshot.hasData) return _buildCircleButton(
-                                        icon: Icons.favorite_border,
-                                        label: '0',
-                                        color: whiteColor,
-                                        onTap: () => _toggleLike(videoId),
-                                      );
+                                      if (!snapshot.hasData)
+                                        return _buildCircleButton(
+                                          icon: Icons.favorite_border,
+                                          label: '0',
+                                          color: whiteColor,
+                                          onTap: () => _toggleLike(videoId),
+                                        );
 
-                                      final videoData = snapshot.data!.data() as Map<String, dynamic>;
-                                      final likeCount = videoData['likeCount'] ?? 0;
+                                      final videoData = snapshot.data!.data()
+                                          as Map<String, dynamic>;
+                                      final likeCount =
+                                          videoData['likeCount'] ?? 0;
 
                                       return StreamBuilder<bool>(
                                         stream: _isLikedStream(videoId),
                                         builder: (context, likeSnapshot) {
-                                          final isLiked = likeSnapshot.data ?? false;
+                                          final isLiked =
+                                              likeSnapshot.data ?? false;
                                           return _buildCircleButton(
-                                            icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                                            icon: isLiked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
                                             label: '$likeCount',
-                                            color: isLiked ? Colors.red : whiteColor,
+                                            color: isLiked
+                                                ? Colors.red
+                                                : whiteColor,
                                             onTap: () => _toggleLike(videoId),
                                           );
                                         },
@@ -547,7 +554,8 @@ Watch here: $videoUrl
                                         .collection('comments')
                                         .snapshots(),
                                     builder: (context, snapshot) {
-                                      final commentCount = snapshot.data?.docs.length ?? 0;
+                                      final commentCount =
+                                          snapshot.data?.docs.length ?? 0;
                                       return _buildCircleButton(
                                         icon: Icons.comment_outlined,
                                         label: '$commentCount',
@@ -589,7 +597,8 @@ Watch here: $videoUrl
                             if (_error != null)
                               IconButton(
                                 icon: Icon(Icons.refresh, color: whiteColor),
-                                onPressed: () => _loadAndInitializeVideo(_currentIndex),
+                                onPressed: () =>
+                                    _loadAndInitializeVideo(_currentIndex),
                               ),
                           ],
                         ),
@@ -631,7 +640,8 @@ Watch here: $videoUrl
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                  builder: (context) =>
+                      ViewProfileScreen(userId: videoData['creatorId']),
                 ),
               ),
               child: StreamBuilder<DocumentSnapshot>(
@@ -646,10 +656,12 @@ Watch here: $videoUrl
                       backgroundImage: NetworkImage('default_avatar_url'),
                     );
                   }
-                  
-                  final userData = snapshot.data!.data() as Map<String, dynamic>?;
-                  final userPhotoURL = userData?['photoURL'] as String? ?? 'default_avatar_url';
-                  
+
+                  final userData =
+                      snapshot.data!.data() as Map<String, dynamic>?;
+                  final userPhotoURL =
+                      userData?['photoURL'] as String? ?? 'default_avatar_url';
+
                   return CircleAvatar(
                     radius: 20,
                     backgroundImage: NetworkImage(userPhotoURL),
@@ -662,7 +674,8 @@ Watch here: $videoUrl
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                  builder: (context) =>
+                      ViewProfileScreen(userId: videoData['creatorId']),
                 ),
               ),
               child: Text(
@@ -684,17 +697,19 @@ Watch here: $videoUrl
                 if (!snapshot.hasData) {
                   return Container(); // Return empty container while loading
                 }
-                
+
                 final userData = snapshot.data!.data() as Map<String, dynamic>?;
-                final following = List<String>.from(userData?['following'] ?? []);
+                final following =
+                    List<String>.from(userData?['following'] ?? []);
                 final isFollowing = following.contains(videoData['creatorId']);
-                
+
                 return Container(
                   height: 32,
                   child: ElevatedButton(
                     onPressed: () => _toggleFollow(videoData['creatorId']),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isFollowing ? Colors.transparent : primaryColor,
+                      backgroundColor:
+                          isFollowing ? Colors.transparent : primaryColor,
                       side: BorderSide(
                         color: isFollowing ? Colors.white : Colors.transparent,
                         width: 1,
@@ -709,7 +724,8 @@ Watch here: $videoUrl
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
-                        fontWeight: isFollowing ? FontWeight.normal : FontWeight.bold,
+                        fontWeight:
+                            isFollowing ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
                   ),
