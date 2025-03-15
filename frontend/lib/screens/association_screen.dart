@@ -748,7 +748,12 @@ void _showAddPrayerDialog() {
 
 Future<void> _toggleLike(String prayerId, bool isLiked) async {
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Please login to like prayers')),
+    );
+    return;
+  }
 
   final prayerRef = FirebaseFirestore.instance
       .collection('fundraisers')
@@ -766,28 +771,46 @@ Future<void> _toggleLike(String prayerId, bool isLiked) async {
         receiverId: prayerData['userId'],
         senderId: user.uid,
         type: 'PRAYER_LIKE',
-        content: '${user.displayName ?? 'Someone'} liked your prayer',
+        content: '${user.displayName ?? 'Someone'} liked your prayer in ${widget.fundraiser['title']}',
         targetId: widget.fundraiser['id'],
         additionalData: {
           'fundraiserTitle': widget.fundraiser['title'],
           'prayer': prayerData['message'],
+          'prayerId': prayerId,
         },
       );
-    }
 
-    if (isLiked) {
+      // Update the prayer document
+      await prayerRef.update({
+        'likes': FieldValue.increment(1),
+        'likedBy': FieldValue.arrayUnion([user.uid]),
+        'lastLikedAt': FieldValue.serverTimestamp(),
+      });
+    } else if (isLiked) {
+      // Unlike the prayer
       await prayerRef.update({
         'likes': FieldValue.increment(-1),
         'likedBy': FieldValue.arrayRemove([user.uid]),
       });
-    } else {
-      await prayerRef.update({
-        'likes': FieldValue.increment(1),
-        'likedBy': FieldValue.arrayUnion([user.uid]),
-      });
     }
+
+    // Show success message
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isLiked ? 'Prayer unliked' : 'Prayer liked'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   } catch (e) {
     print('Error toggling prayer like: $e');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error updating like. Please try again.'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 }
 
