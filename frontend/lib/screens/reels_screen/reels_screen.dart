@@ -406,15 +406,33 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                               bottom: 100,
                               child: Column(
                                 children: [
-                                  StreamBuilder<bool>(
-                                    stream: _isLikedStream(videoId),
+                                  StreamBuilder<DocumentSnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('videos')
+                                        .doc(videoId)
+                                        .snapshots(),
                                     builder: (context, snapshot) {
-                                      final isLiked = snapshot.data ?? false;
-                                      return _buildCircleButton(
-                                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                                        label: '${videoData['likes'] ?? 0}',
-                                        color: isLiked ? Colors.red : whiteColor,
+                                      if (!snapshot.hasData) return _buildCircleButton(
+                                        icon: Icons.favorite_border,
+                                        label: '0',
+                                        color: whiteColor,
                                         onTap: () => _toggleLike(videoId),
+                                      );
+
+                                      final videoData = snapshot.data!.data() as Map<String, dynamic>;
+                                      final likeCount = videoData['likeCount'] ?? 0;
+
+                                      return StreamBuilder<bool>(
+                                        stream: _isLikedStream(videoId),
+                                        builder: (context, likeSnapshot) {
+                                          final isLiked = likeSnapshot.data ?? false;
+                                          return _buildCircleButton(
+                                            icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                                            label: '$likeCount',
+                                            color: isLiked ? Colors.red : whiteColor,
+                                            onTap: () => _toggleLike(videoId),
+                                          );
+                                        },
                                       );
                                     },
                                   ),
