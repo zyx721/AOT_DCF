@@ -29,8 +29,8 @@ class VideoCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160, // Reduced width for phone shape
-        margin: EdgeInsets.only(right: 16),
+        width: 150, // Reduced width
+        margin: EdgeInsets.only(right: 8), // Reduced margin
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -79,9 +79,9 @@ class VideoCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Remove SizedBox and adjust Text padding
-            Padding(
-              padding: EdgeInsets.only(top: 4), // Reduced from 8 to 4
+            Container(
+              height: 40, // Fixed height for text container
+              padding: EdgeInsets.only(top: 4),
               child: Text(
                 title,
                 style: TextStyle(
@@ -170,99 +170,94 @@ class _FundraisingHomePageState extends State<HomeScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 20.0), // Add bottom padding
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 16), // Add this line for top spacing
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '\$349',
-                            style: TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.bold),
-                          ),
-                          Text('My wallet balance')
-                        ],
-                      ),
-                      ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8))),
-                          child: Text('Top up',
-                              style: TextStyle(color: Colors.white)))
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              _buildImageSlider(),
-              SizedBox(height: 20),
-              _buildFundraisingSection('Urgent Fundraising', [
-                'All',
-                'Medical',
-                'Disaster',
-                'Education',
-                'Environment',
-                'Social',
-                'Sick child',
-                'Infrastructure',
-                'Art',
-                'Orphanage',
-                'Difable',
-                'Humanity',
-                'Others'
-              ]), // Removed Padding
-              SizedBox(height: 20),
-              // Add new video section
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  "Watch the Impact of Your Donation",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(
-                height: 280, // Increased height for phone shape
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 12), // Reduced spacing
+            Padding(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 12.0), // Reduced padding
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    VideoCard(
-                      image: 'assets/images/profile.jpg',
-                      title: "Sarah's Surgery Was Successful",
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => ReelsScreen())),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '\$349',
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                        Text('My wallet balance')
+                      ],
                     ),
-                    VideoCard(
-                      image: 'assets/images/profile.jpg',
-                      title: "Siamese Twins Surgery Was Successful",
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => ReelsScreen())),
-                    ),
+                    ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8))),
+                        child: Text('Top up',
+                            style: TextStyle(color: Colors.white)))
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            SizedBox(height: 16), // Reduced spacing
+            _buildImageSlider(),
+            SizedBox(height: 16), // Reduced spacing
+            _buildFundraisingSection('Urgent Fundraising', [
+              'All',
+              'Medical',
+              'Disaster',
+              'Education',
+              'Environment',
+              'Social',
+              'Sick child',
+              'Infrastructure',
+              'Art',
+              'Orphanage',
+              'Difable',
+              'Humanity',
+              'Others'
+            ]),
+            SizedBox(height: 16), // Reduced spacing
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0), // Reduced padding
+              child: Text(
+                "Watch the Impact of Your Donation",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            SizedBox(
+              height: 280, // Increased height for phone shape
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    EdgeInsets.symmetric(horizontal: 12), // Reduced padding
+                children: [
+                  VideoCard(
+                    image: 'assets/images/profile.jpg',
+                    title: "Sarah's Surgery Was Successful",
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (context) => ReelsScreen())),
+                  ),
+                  VideoCard(
+                    image: 'assets/images/profile.jpg',
+                    title: "Siamese Twins Surgery Was Successful",
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (context) => ReelsScreen())),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
