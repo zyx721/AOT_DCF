@@ -113,10 +113,12 @@ ${relevantRoles.map((doc) => doc.content).join('\n\n')}''';
       print('\n❓ USER QUERY: "$userQuery"');
       print('═══════════════════════════════════\n');
 
+      // Keep the context internal but return only the user query
       return '$contextHeader\n\nUser Query: $userQuery';
     }
 
-    return contextHeader;
+    // Return a user-friendly welcome message instead of the system context
+    return "I am your AI assistant for the Iftar Ramadan Fundraising Campaign. I have comprehensive knowledge about this humanitarian initiative and can help you find your perfect role within our organization. Whether you have questions about event logistics, donation processes, volunteer opportunities, or need guidance selecting a position that matches your skills and availability, I'm here to provide personalized assistance throughout your involvement with our campaign.";
   }
 
   String generateSystemPrompt() {
