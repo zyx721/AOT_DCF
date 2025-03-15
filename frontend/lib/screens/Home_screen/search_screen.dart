@@ -8,10 +8,17 @@ class SearchPage extends StatefulWidget {
   _SearchPageState createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
   String _searchQuery = '';
   String _selectedFilter = 'All';
   final TextEditingController _searchController = TextEditingController();
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   Stream<QuerySnapshot> getFundraisersStream() {
     Query query = FirebaseFirestore.instance.collection('fundraisers')
@@ -21,6 +28,12 @@ class _SearchPageState extends State<SearchPage> {
     if (_selectedFilter != 'All') {
       query = query.where('category', isEqualTo: _selectedFilter);
     }
+
+    return query.orderBy('createdAt', descending: true).limit(20).snapshots();
+  }
+
+  Stream<QuerySnapshot> getVideosStream() {
+    Query query = FirebaseFirestore.instance.collection('videos');
 
     return query.orderBy('createdAt', descending: true).limit(20).snapshots();
   }
@@ -36,6 +49,13 @@ class _SearchPageState extends State<SearchPage> {
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: 'Fundraisers'),
+            Tab(text: 'Videos'),
+          ],
+        ),
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
@@ -49,7 +69,7 @@ class _SearchPageState extends State<SearchPage> {
                 });
               },
               decoration: InputDecoration(
-                hintText: "Search fundraisers...",
+                hintText: "Search...",
                 prefixIcon: Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.grey[200],
@@ -60,86 +80,151 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
             SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  'All',
-                  'Medical',
-                  'Disaster',
-                  'Education',
-                  'Environment',
-                  'Social',
-                  'Sick child',
-                  'Infrastructure',
-                  'Art',
-                  'Orphanage',
-                  'Difable',
-                  'Humanity',
-                  'Others'
-                ].map((filter) => Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(filter),
-                    selected: _selectedFilter == filter,
-                    selectedColor: Colors.green,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedFilter = selected ? filter : 'All';
-                      });
-                    },
-                  ),
-                )).toList(),
-              ),
-            ),
-            SizedBox(height: 16),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: getFundraisersStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Something went wrong'));
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(child: Text('No fundraisers found'));
-                  }
-
-                  // Perform client-side filtering for multiple field search
-                  var filteredDocs = snapshot.data!.docs.where((doc) {
-                    if (_searchQuery.isEmpty) return true;
-                    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                    String searchLower = _searchQuery.toLowerCase();
-                    String title = (data['title'] ?? '').toLowerCase();
-                    String story = (data['story'] ?? '').toLowerCase();
-                    String recipientName = (data['recipientName'] ?? '').toLowerCase();
-                    
-                    return title.contains(searchLower) ||
-                           story.contains(searchLower) ||
-                           recipientName.contains(searchLower);
-                  }).toList();
-
-                  if (filteredDocs.isEmpty) {
-                    return Center(child: Text('No fundraisers found'));
-                  }
-
-                  return ListView.builder(
-                    itemCount: filteredDocs.length,
-                    itemBuilder: (context, index) {
-                      var fundraiser = filteredDocs[index];
-                      return _buildFundraiserCard(fundraiser);
-                    },
-                  );
-                },
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildFundraisersTab(),
+                  _buildVideosTab(),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFundraisersTab() {
+    return Column(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              'All',
+              'Medical',
+              'Disaster',
+              'Education',
+              'Environment',
+              'Social',
+              'Sick child',
+              'Infrastructure',
+              'Art',
+              'Orphanage',
+              'Difable',
+              'Humanity',
+              'Others'
+            ].map((filter) => Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(filter),
+                selected: _selectedFilter == filter,
+                selectedColor: Colors.green,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedFilter = selected ? filter : 'All';
+                  });
+                },
+              ),
+            )).toList(),
+          ),
+        ),
+        SizedBox(height: 16),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: getFundraisersStream(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text('Something went wrong'));
+              }
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(child: Text('No fundraisers found'));
+              }
+
+              // Perform client-side filtering for multiple field search
+              var filteredDocs = snapshot.data!.docs.where((doc) {
+                if (_searchQuery.isEmpty) return true;
+                Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                String searchLower = _searchQuery.toLowerCase();
+                String title = (data['title'] ?? '').toLowerCase();
+                String story = (data['story'] ?? '').toLowerCase();
+                String recipientName = (data['recipientName'] ?? '').toLowerCase();
+                
+                return title.contains(searchLower) ||
+                       story.contains(searchLower) ||
+                       recipientName.contains(searchLower);
+              }).toList();
+
+              if (filteredDocs.isEmpty) {
+                return Center(child: Text('No fundraisers found'));
+              }
+
+              return ListView.builder(
+                itemCount: filteredDocs.length,
+                itemBuilder: (context, index) {
+                  var fundraiser = filteredDocs[index];
+                  return _buildFundraiserCard(fundraiser);
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideosTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: getVideosStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Something went wrong'));
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No videos found'));
+        }
+
+        // Perform client-side filtering for multiple field search
+        var filteredDocs = snapshot.data!.docs.where((doc) {
+          if (_searchQuery.isEmpty) return true;
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          String searchLower = _searchQuery.toLowerCase();
+          String title = (data['title'] ?? '').toLowerCase();
+          String creatorName = (data['creatorName'] ?? '').toLowerCase();
+          
+          return title.contains(searchLower) ||
+                 creatorName.contains(searchLower);
+        }).toList();
+
+        if (filteredDocs.isEmpty) {
+          return Center(child: Text('No videos found'));
+        }
+
+        return GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 0.75,
+          ),
+          itemCount: filteredDocs.length,
+          itemBuilder: (context, index) {
+            var video = filteredDocs[index];
+            return _buildVideoCard(video);
+          },
+        );
+      },
     );
   }
 
@@ -232,6 +317,71 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoCard(DocumentSnapshot video) {
+    Map<String, dynamic> data = video.data() as Map<String, dynamic>;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          // Navigate to video details or play video
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              child: CachedNetworkImage(
+                imageUrl: data['mainImageUrl'] ?? '',
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[200],
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+                  child: Icon(Icons.error),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data['title'] ?? '',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'By ${data['creatorName'] ?? 'Unknown'}',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.thumb_up, size: 14, color: Colors.grey),
+                      SizedBox(width: 4),
+                      Text('${data['likeCount'] ?? 0}'),
+                      SizedBox(width: 16),
+                      Icon(Icons.favorite, size: 14, color: Colors.grey),
+                      SizedBox(width: 4),
+                      Text('${data['prayCount'] ?? 0}'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
