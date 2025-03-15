@@ -3,7 +3,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 class PayPalWebViewScreen extends StatefulWidget {
   final String initialUrl;
-  final Function(bool success) onPaymentComplete;
+  final Function(bool) onPaymentComplete;
 
   const PayPalWebViewScreen({
     Key? key,
@@ -16,29 +16,31 @@ class PayPalWebViewScreen extends StatefulWidget {
 }
 
 class _PayPalWebViewScreenState extends State<PayPalWebViewScreen> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
+  late final WebViewController controller;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+    controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (String url) {
-          setState(() => _isLoading = true);
-          if (url.contains('success')) {
-            widget.onPaymentComplete(true);
-            Navigator.of(context).pop();
-          } else if (url.contains('cancel')) {
-            widget.onPaymentComplete(false);
-            Navigator.of(context).pop();
-          }
-        },
-        onPageFinished: (String url) {
-          setState(() => _isLoading = false);
-        },
-      ))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() => isLoading = true);
+          },
+          onPageFinished: (String url) {
+            setState(() => isLoading = false);
+            if (url.contains('success.example.com')) {
+              widget.onPaymentComplete(true);
+              Navigator.of(context).pop(true);
+            } else if (url.contains('cancel.example.com')) {
+              widget.onPaymentComplete(false);
+              Navigator.of(context).pop(false);
+            }
+          },
+        ),
+      )
       ..loadRequest(Uri.parse(widget.initialUrl));
   }
 
@@ -49,17 +51,14 @@ class _PayPalWebViewScreenState extends State<PayPalWebViewScreen> {
         title: Text('PayPal Payment'),
         leading: IconButton(
           icon: Icon(Icons.close),
-          onPressed: () {
-            widget.onPaymentComplete(false);
-            Navigator.of(context).pop();
-          },
+          onPressed: () => Navigator.of(context).pop(false),
         ),
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
+          WebViewWidget(controller: controller),
+          if (isLoading)
+            Center(
               child: CircularProgressIndicator(),
             ),
         ],

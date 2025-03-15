@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pay/pay.dart';  // Add this import
+import 'package:webview_flutter/webview_flutter.dart';
+import '../payment/paypal_webview_screen.dart';
 
 class TopUpScreen extends StatefulWidget {
   @override
@@ -132,6 +134,70 @@ class _TopUpScreenState extends State<TopUpScreen> {
             ),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _handlePayPalPayment() async {
+    try {
+      // PayPal Sandbox URL
+      final baseUrl = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
+      final params = {
+        'cmd': '_donations',
+        'business': 'aotdevimpact@gmail.com', // Your PayPal sandbox business account
+        'item_name': 'Top Up',
+        'amount': selectedAmount,
+        'currency_code': 'USD',
+        'return': 'https://success.example.com', // Your success URL
+        'cancel_return': 'https://cancel.example.com', // Your cancel URL
+      };
+
+      final uri = Uri.parse(baseUrl).replace(queryParameters: params);
+
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PayPalWebViewScreen(
+            initialUrl: uri.toString(),
+            onPaymentComplete: (success) {
+              if (success && mounted) {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Payment Success'),
+                    content: Text('Your top up of \$$selectedAmount was successful'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        debugPrint('PayPal Error: $e');
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Setup Error'),
+            content: Text('Failed to initialize PayPal. Please try again.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
@@ -377,6 +443,8 @@ class _TopUpScreenState extends State<TopUpScreen> {
                     if (_formKey.currentState!.validate()) {
                       if (selectedPaymentMethod == 'google_pay') {
                         _handleGooglePay();
+                      } else if (selectedPaymentMethod == 'paypal') {
+                        _handlePayPalPayment();
                       }
                       // Handle other payment methods...
                     }
