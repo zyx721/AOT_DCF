@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../services/drive.dart';
 import '../../widgets/modern_app_bar.dart';
 import '../select_interest_screen.dart';
+import '../follow_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -298,8 +299,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             _buildStatItem("Fundraising", fundraisers.toString()),
-                            _buildStatItem("Followers", followers.toString()),
-                            _buildStatItem("Following", following.toString()),
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FollowListScreen(
+                                    userId: user?.uid ?? '',
+                                    isFollowers: true,
+                                  ),
+                                ),
+                              ),
+                              child: _buildStatItem("Followers", followers.toString()),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FollowListScreen(
+                                    userId: user?.uid ?? '',
+                                    isFollowers: false,
+                                  ),
+                                ),
+                              ),
+                              child: _buildStatItem("Following", following.toString()),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 16),

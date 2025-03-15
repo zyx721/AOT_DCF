@@ -4,79 +4,37 @@ import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'comments_sheet.dart';
+import '../view_profile_screen/view_profile_screen.dart';
 
 class ReelsScreen extends StatefulWidget {
+  final int initialIndex;
+  final List<DocumentSnapshot>? videos;
+  final String? searchQuery;
+
+  const ReelsScreen({
+    Key? key, 
+    this.initialIndex = 0,
+    this.videos,
+    this.searchQuery,
+  }) : super(key: key);
+
   @override
   _ReelsScreenState createState() => _ReelsScreenState();
 }
 
 class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   late PageController _pageController;
-  List<String> videos = [
-    'https://drive.google.com/uc?export=download&id=1Vdg54Nscas6XXvn7KAspRE_7S8N7iQim',
-    'https://drive.google.com/uc?export=download&id=13v0mmQq7F57cKDPP-XvpHWBiwXTvDrGS',
-    'https://drive.google.com/uc?export=download&id=1SM080AtS077e2_jjFL6O98yls1GPfdYG',
-    'https://drive.google.com/uc?export=download&id=1poxg9BsDzyVXCRHl4ITN47bPmtm8Nq0i',
-    'https://drive.google.com/uc?export=download&id=19pCv8mRrinuzx3_nASZIHRQEUqgDFNyA',
-    'https://drive.google.com/uc?export=download&id=1wUPZVisMOy-gzcEnoQlhFFteMUifIQ9V',
-  ];
+  List<DocumentSnapshot> _videoDocuments = [];
+  bool _isLoadingVideos = true;
+  String? _loadingError;
 
   int _currentIndex = 0;
   VideoPlayerController? _currentController;
   bool _isLoading = true;
   String? _error;
-
-  Map<int, bool> _isLiked = {};
-  List<Map<String, dynamic>> _reelsData = [
-    {
-      'username': '@RamadanSpirit',
-      'description': 'Ramadan Month Special Coverage',
-      'likes': '15.2K',
-      'comments': '2.1K',
-      'userAvatar': 'https://picsum.photos/200/300',
-      'title': 'Ramadan Month'
-    },
-    {
-      'username': '@OmanCulture',
-      'description': 'Iftar Traditions in Oman',
-      'likes': '8.7K',
-      'comments': '1.3K',
-      'userAvatar': 'https://picsum.photos/200/301',
-      'title': 'Iftar Oman'
-    },
-    {
-      'username': '@MakkahNews',
-      'description': 'Blood Donation Campaign in Makkah',
-      'likes': '12.4K',
-      'comments': '1.8K',
-      'userAvatar': 'https://picsum.photos/200/302',
-      'title': 'Blood Donation in Makkah'
-    },
-    {
-      'username': '@EconomyNews',
-      'description': 'Ramadan Economic Impact',
-      'likes': '7.9K',
-      'comments': '956',
-      'userAvatar': 'https://picsum.photos/200/303',
-      'title': 'Ramadan and Dollar'
-    },
-    {
-      'username': '@MakkahLive',
-      'description': 'إفطار الصائمين في الحرم المكي ٩ رمضان ١٤٤٤ هجري',
-      'likes': '25.6K',
-      'comments': '3.2K',
-      'userAvatar': 'https://picsum.photos/200/304',
-      'title': 'إفطار الصائمين في الحرم المكي'
-    },
-    {
-      'username': '@HealthAwareness',
-      'description': 'هل للتبرع بالدم فوائد صحية؟',
-      'likes': '11.3K',
-      'comments': '1.5K',
-      'userAvatar': 'https://picsum.photos/200/305',
-      'title': 'فوائد التبرع بالدم'
-    },
-  ];
 
   final Color primaryColor = const Color.fromARGB(255, 26, 126, 51);
   final Color primaryLightColor = const Color.fromARGB(120, 26, 126, 51);
@@ -91,16 +49,155 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _pageController = PageController();
-    _preloadVideos(_currentIndex);
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+    
+    if (widget.videos != null) {
+      setState(() {
+        _videoDocuments = widget.videos!;
+        _isLoadingVideos = false;
+      });
+      // Initialize the first video immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadAndInitializeVideo(widget.initialIndex);
+      });
+    } else {
+      _loadVideos();
+    }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      _currentController?.pause();
+  Future<void> _loadVideos() async {
+    try {
+      setState(() => _isLoadingVideos = true);
+      
+      Query query = FirebaseFirestore.instance.collection('videos')
+          .orderBy('createdAt', descending: true);
+
+      // Apply search filter if search query exists
+      if (widget.searchQuery?.isNotEmpty ?? false) {
+        query = query.where('searchKeywords', arrayContains: widget.searchQuery!.toLowerCase());
+      }
+
+      final videoSnapshots = await query.get();
+
+      setState(() {
+        _videoDocuments = videoSnapshots.docs;
+        _isLoadingVideos = false;
+      });
+
+      if (_videoDocuments.isNotEmpty) {
+        _preloadVideos(_currentIndex);
+      }
+    } catch (e) {
+      setState(() {
+        _loadingError = 'Error loading videos: $e';
+        _isLoadingVideos = false;
+      });
     }
+  }
+
+  Future<void> _toggleLike(String videoId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
+    final likesCollection = videoRef.collection('likes');
+    final userLikeDoc = likesCollection.doc(user.uid);
+
+    try {
+      final docSnapshot = await userLikeDoc.get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (docSnapshot.exists) {
+        // Unlike: Remove user from likes collection and decrease counter
+        batch.delete(userLikeDoc);
+        batch.update(videoRef, {
+          'likeCount': FieldValue.increment(-1)
+        });
+      } else {
+        // Like: Add user to likes collection and increase counter
+        batch.set(userLikeDoc, {
+          'userId': user.uid,
+          'timestamp': FieldValue.serverTimestamp(),
+          'userName': user.displayName,
+        });
+        batch.update(videoRef, {
+          'likeCount': FieldValue.increment(1)
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error toggling like: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating like. Please try again.'))
+      );
+    }
+  }
+
+  Future<void> _togglePray(String videoId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final videoRef = FirebaseFirestore.instance.collection('videos').doc(videoId);
+    final praysCollection = videoRef.collection('prays');
+    final userPrayDoc = praysCollection.doc(user.uid);
+
+    try {
+      final docSnapshot = await userPrayDoc.get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (docSnapshot.exists) {
+        // Remove pray: Remove user from prays collection and decrease counter
+        batch.delete(userPrayDoc);
+        batch.update(videoRef, {
+          'prayCount': FieldValue.increment(-1)
+        });
+      } else {
+        // Add pray: Add user to prays collection and increase counter
+        batch.set(userPrayDoc, {
+          'userId': user.uid,
+          'timestamp': FieldValue.serverTimestamp(),
+          'userName': user.displayName,
+        });
+        batch.update(videoRef, {
+          'prayCount': FieldValue.increment(1)
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error toggling pray: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating pray. Please try again.'))
+      );
+    }
+  }
+
+  Stream<bool> _isLikedStream(String videoId) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value(false);
+
+    return FirebaseFirestore.instance
+        .collection('videos')
+        .doc(videoId)
+        .collection('likes')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  Stream<bool> _isPrayedStream(String videoId) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value(false);
+
+    return FirebaseFirestore.instance
+        .collection('videos')
+        .doc(videoId)
+        .collection('prays')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.exists);
   }
 
   Future<File> _cacheVideo(String url, int index) async {
@@ -108,7 +205,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       url,
       withProgress: true,
     );
-
+    
     File? cachedFile;
     await for (final event in fileStream) {
       if (event is FileInfo) {
@@ -122,32 +219,33 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   Future<void> _preloadVideos(int currentIndex) async {
     // Load current video
     await _loadAndInitializeVideo(currentIndex);
-
+    
     // Preload next video if available
-    if (currentIndex < videos.length - 1) {
+    if (currentIndex < _videoDocuments.length - 1) {
       _precacheVideo(currentIndex + 1);
     }
-
+    
     // Preload previous video if available
     if (currentIndex > 0) {
       _precacheVideo(currentIndex - 1);
     }
-
+    
     // Clean up old cached videos
     _cleanupCache(currentIndex);
   }
 
   Future<void> _precacheVideo(int index) async {
     if (_controllerCache.containsKey(index)) return;
-
+    
     try {
-      final cachedFile = await _cacheVideo(videos[index], index);
+      final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
+      final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
       final controller = VideoPlayerController.file(cachedFile)
         ..setLooping(true);
-
+      
       _initializingFutures[index] = controller.initialize();
       _controllerCache[index] = controller;
-
+      
       // Start buffering but don't play
       await controller.initialize();
     } catch (e) {
@@ -160,7 +258,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       currentIndex - 1,
       currentIndex,
       currentIndex + 1,
-    }.where((index) => index >= 0 && index < videos.length);
+    }.where((index) => index >= 0 && index < _videoDocuments.length);
 
     _controllerCache.keys.toList().forEach((index) {
       if (!validIndices.contains(index)) {
@@ -172,8 +270,6 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadAndInitializeVideo(int index) async {
-    if (!mounted) return;
-
     setState(() {
       _isLoading = true;
       _error = null;
@@ -182,20 +278,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     try {
       if (_currentController != null) {
         await _currentController!.pause();
-        _currentController?.dispose();
-        _currentController = null;
       }
 
-      // Clear memory before loading new video
-      await DefaultCacheManager().emptyCache();
-
+      final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
+      final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
+      
       if (_controllerCache.containsKey(index)) {
         _currentController = _controllerCache[index];
-        await _initializingFutures[index];
       } else {
-        final cachedFile = await _cacheVideo(videos[index], index);
-        if (!mounted) return;
-
         _currentController = VideoPlayerController.file(cachedFile)
           ..setLooping(true);
         await _currentController!.initialize();
@@ -206,6 +296,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         setState(() {
           _isLoading = false;
         });
+        // Ensure video starts playing
         _currentController?.play();
       }
     } catch (e) {
@@ -220,207 +311,268 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   }
 
   void _onPageChanged(int index) {
-    _currentIndex = index;
-    _preloadVideos(index);
+    setState(() {
+      _currentIndex = index;
+    });
+    _loadAndInitializeVideo(index);
   }
 
   @override
   void dispose() {
-    _controllerCache.values.forEach((controller) {
-      controller.pause();
-      controller.dispose();
-    });
+    _controllerCache.values.forEach((controller) => controller.dispose());
     _controllerCache.clear();
     _initializingFutures.clear();
-    _currentController?.dispose();
     _pageController.dispose();
-    DefaultCacheManager().emptyCache();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _showComments(String videoId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentsSheet(videoId: videoId),
+    );
+  }
+
+  Future<void> _toggleFollow(String creatorId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+    final otherUserRef = FirebaseFirestore.instance.collection('users').doc(creatorId);
+
+    try {
+      final isFollowing = await _isFollowingUser(creatorId);
+      
+      if (isFollowing) {
+        await userRef.update({
+          'following': FieldValue.arrayRemove([creatorId])
+        });
+        await otherUserRef.update({
+          'followers': FieldValue.arrayRemove([currentUser.uid])
+        });
+      } else {
+        await userRef.update({
+          'following': FieldValue.arrayUnion([creatorId])
+        });
+        await otherUserRef.update({
+          'followers': FieldValue.arrayUnion([currentUser.uid])
+        });
+      }
+    } catch (e) {
+      print('Error toggling follow: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating follow status. Please try again.'))
+      );
+    }
+  }
+
+  Future<bool> _isFollowingUser(String creatorId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return false;
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .get();
+
+    final following = userDoc.data()?['following'] ?? [];
+    return following.contains(creatorId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            itemCount: videos.length,
-            onPageChanged: _onPageChanged,
-            itemBuilder: (context, index) {
-              if (index != _currentIndex) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                );
-              }
-
-              if (_error != null) {
-                return Center(
+      body: _isLoadingVideos
+          ? Center(child: CircularProgressIndicator(color: Colors.white))
+          : _loadingError != null
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, color: Colors.white, size: 48),
-                      SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => _loadAndInitializeVideo(_currentIndex),
+                      Text(_loadingError!, style: TextStyle(color: Colors.white)),
+                      ElevatedButton(
+                        onPressed: _loadVideos,
                         child: Text('Retry'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                        ),
                       ),
                     ],
                   ),
-                );
-              }
+                )
+              : Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      scrollDirection: Axis.vertical,
+                      itemCount: _videoDocuments.length,
+                      onPageChanged: _onPageChanged,
+                      itemBuilder: (context, index) {
+                        final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
+                        final videoId = _videoDocuments[index].id;
 
-              if (_isLoading ||
-                  _currentController == null ||
-                  !_currentController!.value.isInitialized) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                );
-              }
+                        if (index != _currentIndex) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          );
+                        }
 
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (_currentController!.value.isPlaying) {
-                        _currentController!.pause();
-                      } else {
-                        _currentController!.play();
-                      }
-                      setState(() {});
-                    },
-                    child: Container(
-                      color: Colors.black,
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: _currentController!.value.size.width,
-                          height: _currentController!.value.size.height,
-                          child: VideoPlayer(_currentController!),
+                        if (_error != null) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.white, size: 48),
+                                SizedBox(height: 16),
+                                Text(
+                                  _error!,
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: 16),
+                                TextButton(
+                                  onPressed: () => _loadAndInitializeVideo(_currentIndex),
+                                  child: Text('Retry'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (_isLoading ||
+                            _currentController == null ||
+                            !_currentController!.value.isInitialized) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          );
+                        }
+
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (_currentController!.value.isPlaying) {
+                                  _currentController!.pause();
+                                } else {
+                                  _currentController!.play();
+                                }
+                                setState(() {});
+                              },
+                              child: Container(
+                                color: Colors.black,
+                                child: FittedBox(
+                                  fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: _currentController!.value.size.width,
+                                    height: _currentController!.value.size.height,
+                                    child: VideoPlayer(_currentController!),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Right side buttons
+                            Positioned(
+                              right: 16,
+                              bottom: 100,
+                              child: Column(
+                                children: [
+                                  StreamBuilder<DocumentSnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('videos')
+                                        .doc(videoId)
+                                        .snapshots(),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) return _buildCircleButton(
+                                        icon: Icons.favorite_border,
+                                        label: '0',
+                                        color: whiteColor,
+                                        onTap: () => _toggleLike(videoId),
+                                      );
+
+                                      final videoData = snapshot.data!.data() as Map<String, dynamic>;
+                                      final likeCount = videoData['likeCount'] ?? 0;
+
+                                      return StreamBuilder<bool>(
+                                        stream: _isLikedStream(videoId),
+                                        builder: (context, likeSnapshot) {
+                                          final isLiked = likeSnapshot.data ?? false;
+                                          return _buildCircleButton(
+                                            icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                                            label: '$likeCount',
+                                            color: isLiked ? Colors.red : whiteColor,
+                                            onTap: () => _toggleLike(videoId),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: 20),
+                                  StreamBuilder<QuerySnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('videos')
+                                        .doc(videoId)
+                                        .collection('comments')
+                                        .snapshots(),
+                                    builder: (context, snapshot) {
+                                      final commentCount = snapshot.data?.docs.length ?? 0;
+                                      return _buildCircleButton(
+                                        icon: Icons.comment_outlined,
+                                        label: '$commentCount',
+                                        color: whiteColor,
+                                        onTap: () => _showComments(videoId),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: 20),
+                                  _buildCircleButton(
+                                    icon: Icons.share,
+                                    label: 'Share',
+                                    onTap: () {/* Share functionality */},
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Bottom user info and description
+                            Positioned(
+                              left: 16,
+                              right: 72,
+                              bottom: 20,
+                              child: _buildUserInfo(videoData),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.arrow_back, color: whiteColor),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            if (_error != null)
+                              IconButton(
+                                icon: Icon(Icons.refresh, color: whiteColor),
+                                onPressed: () => _loadAndInitializeVideo(_currentIndex),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                  // Right side buttons
-                  Positioned(
-                    right: 16,
-                    bottom: 100,
-                    child: Column(
-                      children: [
-                        _buildCircleButton(
-                          icon: _isLiked[index] == true
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          label: _reelsData[index]['likes'],
-                          color:
-                              _isLiked[index] == true ? Colors.red : whiteColor,
-                          onTap: () => setState(() =>
-                              _isLiked[index] = !(_isLiked[index] ?? false)),
-                        ),
-                        SizedBox(height: 20),
-                        _buildCircleButton(
-                          icon: Icons.comment,
-                          label: _reelsData[index]['comments'],
-                          onTap: () {/* Show comments */},
-                        ),
-                        SizedBox(height: 20),
-                        _buildCircleButton(
-                          icon: Icons.share,
-                          label: 'Share',
-                          onTap: () {/* Share functionality */},
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Bottom user info and description
-                  Positioned(
-                    left: 16,
-                    right: 72,
-                    bottom: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundImage:
-                                  NetworkImage(_reelsData[index]['userAvatar']),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              _reelsData[index]['username'],
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            TextButton(
-                              onPressed: () {/* Follow functionality */},
-                              child: Text('Follow'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: whiteColor,
-                                backgroundColor: primaryColor,
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          _reelsData[index]['description'],
-                          style: TextStyle(color: whiteColor),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.arrow_back, color: whiteColor),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  if (_error != null)
-                    IconButton(
-                      icon: Icon(Icons.refresh, color: whiteColor),
-                      onPressed: () => _loadAndInitializeVideo(_currentIndex),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+                  ],
+                ),
     );
   }
 
@@ -440,6 +592,113 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         Text(
           label,
           style: TextStyle(color: whiteColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserInfo(Map<String, dynamic> videoData) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                ),
+              ),
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(videoData['creatorId'])
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage('default_avatar_url'),
+                    );
+                  }
+                  
+                  final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                  final userPhotoURL = userData?['photoURL'] as String? ?? 'default_avatar_url';
+                  
+                  return CircleAvatar(
+                    radius: 20,
+                    backgroundImage: NetworkImage(userPhotoURL),
+                  );
+                },
+              ),
+            ),
+            SizedBox(width: 12),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                ),
+              ),
+              child: Text(
+                videoData['creatorName'] ?? 'Anonymous',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(FirebaseAuth.instance.currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container(); // Return empty container while loading
+                }
+                
+                final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                final following = List<String>.from(userData?['following'] ?? []);
+                final isFollowing = following.contains(videoData['creatorId']);
+                
+                return Container(
+                  height: 32,
+                  child: ElevatedButton(
+                    onPressed: () => _toggleFollow(videoData['creatorId']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFollowing ? Colors.transparent : primaryColor,
+                      side: BorderSide(
+                        color: isFollowing ? Colors.white : Colors.transparent,
+                        width: 1,
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      isFollowing ? 'Following' : 'Follow',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: isFollowing ? FontWeight.normal : FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Text(
+          videoData['title'] ?? '',
+          style: TextStyle(color: whiteColor),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

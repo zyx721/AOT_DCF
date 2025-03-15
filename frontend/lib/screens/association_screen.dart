@@ -11,6 +11,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:frontend/services/pdf_viewer_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:frontend/screens/view_profile_screen/view_profile_screen.dart';
 
 class AssociationScreen extends StatefulWidget {
   final Map<String, dynamic> fundraiser;
@@ -410,9 +411,24 @@ class _AssociationScreenState extends State<AssociationScreen> {
                             creator['photoURL'] ?? 'assets/images/profile.jpg',
                           ),
                         ),
-                        title: Text(
-                          creator['name'] ?? 'Unknown',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                        title: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ViewProfileScreen(
+                                  userId: widget.fundraiser['creatorId'],
+                                ),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            creator['name'] ?? 'Unknown',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
                         ),
                         subtitle: Text(
                           '${creator['city']}, ${creator['country']}',
