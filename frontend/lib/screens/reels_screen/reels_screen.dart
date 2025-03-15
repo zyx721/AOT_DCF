@@ -9,6 +9,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'comments_sheet.dart';
 
 class ReelsScreen extends StatefulWidget {
+  final int initialIndex;
+  final List<DocumentSnapshot>? videos;
+  final String? searchQuery;
+
+  const ReelsScreen({
+    Key? key, 
+    this.initialIndex = 0,
+    this.videos,
+    this.searchQuery,
+  }) : super(key: key);
+
   @override
   _ReelsScreenState createState() => _ReelsScreenState();
 }
@@ -37,18 +48,36 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _pageController = PageController();
-    _loadVideos();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+    
+    if (widget.videos != null) {
+      setState(() {
+        _videoDocuments = widget.videos!;
+        _isLoadingVideos = false;
+      });
+      // Initialize the first video immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadAndInitializeVideo(widget.initialIndex);
+      });
+    } else {
+      _loadVideos();
+    }
   }
 
   Future<void> _loadVideos() async {
     try {
       setState(() => _isLoadingVideos = true);
       
-      final videoSnapshots = await FirebaseFirestore.instance
-          .collection('videos')
-          .orderBy('createdAt', descending: true)
-          .get();
+      Query query = FirebaseFirestore.instance.collection('videos')
+          .orderBy('createdAt', descending: true);
+
+      // Apply search filter if search query exists
+      if (widget.searchQuery?.isNotEmpty ?? false) {
+        query = query.where('searchKeywords', arrayContains: widget.searchQuery!.toLowerCase());
+      }
+
+      final videoSnapshots = await query.get();
 
       setState(() {
         _videoDocuments = videoSnapshots.docs;
@@ -250,12 +279,12 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         await _currentController!.pause();
       }
 
+      final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
+      final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
+      
       if (_controllerCache.containsKey(index)) {
         _currentController = _controllerCache[index];
-        await _initializingFutures[index];
       } else {
-        final videoData = _videoDocuments[index].data() as Map<String, dynamic>;
-        final cachedFile = await _cacheVideo(videoData['videoUrl'], index);
         _currentController = VideoPlayerController.file(cachedFile)
           ..setLooping(true);
         await _currentController!.initialize();
@@ -266,6 +295,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         setState(() {
           _isLoading = false;
         });
+        // Ensure video starts playing
         _currentController?.play();
       }
     } catch (e) {
@@ -280,8 +310,10 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   }
 
   void _onPageChanged(int index) {
-    _currentIndex = index;
-    _preloadVideos(index);
+    setState(() {
+      _currentIndex = index;
+    });
+    _loadAndInitializeVideo(index);
   }
 
   @override

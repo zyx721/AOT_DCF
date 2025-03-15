@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../association_screen.dart';
+import '../reels_screen/reels_screen.dart';
 
 class SearchPage extends StatefulWidget {
   @override
@@ -221,10 +222,26 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           itemCount: filteredDocs.length,
           itemBuilder: (context, index) {
             var video = filteredDocs[index];
-            return _buildVideoCard(video);
+            return _buildVideoCard(video, filteredDocs);
           },
         );
       },
+    );
+  }
+
+  void _navigateToReelsWithSearch(DocumentSnapshot currentVideo, List<DocumentSnapshot> allVideos) {
+    int initialIndex = allVideos.indexWhere((video) => video.id == currentVideo.id);
+    if (initialIndex == -1) initialIndex = 0;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReelsScreen(
+          initialIndex: initialIndex,
+          videos: allVideos,
+          searchQuery: _searchQuery,
+        ),
+      ),
     );
   }
 
@@ -322,14 +339,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildVideoCard(DocumentSnapshot video) {
+  Widget _buildVideoCard(DocumentSnapshot video, List<DocumentSnapshot> allVideos) {
     Map<String, dynamic> data = video.data() as Map<String, dynamic>;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
-          // Navigate to video details or play video
-        },
+        onTap: () => _navigateToReelsWithSearch(video, allVideos),
         child: Stack(
           children: [
             // Cover Image
