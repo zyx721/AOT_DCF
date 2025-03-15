@@ -50,9 +50,10 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _saveLastPosition() async {
     final prefs = await SharedPreferences.getInstance();
     final center = mapController.center;
+    final zoom = mapController.zoom;
     await prefs.setDouble('last_map_lat', center.latitude);
     await prefs.setDouble('last_map_lng', center.longitude);
-    await prefs.setDouble('last_map_zoom', mapController.zoom);
+    await prefs.setDouble('last_map_zoom', zoom);
   }
 
   Future<void> getCurrentLocation() async {
@@ -255,12 +256,12 @@ class _MapScreenState extends State<MapScreen> {
               return FlutterMap(
                 mapController: mapController,
                 options: MapOptions(
-                  center: lastMapPosition ?? LatLng(36.7528, 3.0422),
-                  zoom: 13.0,
+                  initialCenter: lastMapPosition ?? LatLng(36.7528, 3.0422),
+                  initialZoom: 13.0,
                   onTap: (tapPosition, point) {
                     getPlaceName(point);
                   },
-                  onPositionChanged: (MapPosition position, bool hasGesture) {
+                  onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {
                       _saveLastPosition();
                     }
@@ -386,4 +387,10 @@ class _MapScreenState extends State<MapScreen> {
         return const Color(0xFF673AB7); // Deep Purple
     }
   }
+}
+
+extension on MapController {
+   get center => null;
+   
+   get zoom => null;
 }

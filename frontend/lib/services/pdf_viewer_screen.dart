@@ -105,7 +105,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             IconButton(
               icon: Icon(Icons.share, color: Colors.white),
               onPressed: () async {
-                await Share.shareFiles([widget.filePath], text: 'Sharing ${widget.title} document');
+                await Share.shareXFiles([XFile(widget.filePath)], text: 'Sharing ${widget.title} document');
               },
             ),
             IconButton(

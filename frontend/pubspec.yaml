@@ -36,19 +36,19 @@ dependencies:
   firebase_auth: ^5.3.3
   firebase_core: ^3.8.0
   shared_preferences: ^2.2.0
-  google_sign_in: ^5.4.4  # Downgrade from 6.3.0 to 5.4.4 for Dart SDK 3.5.3 compatibility
+  google_sign_in: ^6.3.0  # Downgrade from 6.3.0 to 5.4.4 for Dart SDK 3.5.3 compatibility
   cloud_firestore: ^5.5.0
   google_fonts: ^6.2.1
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
   file_picker: ^9.1.0
-  flutter_map: ^6.1.0  # Downgrade from 8.1.1 to 6.1.0 for Dart SDK 3.5.3 compatibility
+  flutter_map: ^8.1.1  # Downgrade from 8.1.1 to 6.1.0 for Dart SDK 3.5.3 compatibility
   latlong2: ^0.9.0
   uuid: ^4.5.1
   carousel_slider: ^5.0.0
   cached_network_image: ^3.4.1
-  geolocator: ^10.1.0
-  geocoding: ^2.1.1
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
   path_provider: ^2.1.2
   image_picker: ^1.0.4
   firebase_storage: ^12.4.4
@@ -57,15 +57,15 @@ dependencies:
   lottie: ^3.2.0
   just_audio: ^0.9.46
   speech_to_text: ^7.0.0
-  flutter_tts: ^3.8.5
-  google_generative_ai: ^0.2.0  # Corrected package name from google_generativeai
-  pay: ^1.1.2  # Add payment package
+  flutter_tts: ^4.2.2
+  google_generative_ai: ^0.4.6  # Corrected package name from google_generativeai
+  pay: ^3.2.0  # Add payment package
   url_launcher: ^6.2.4  # For launching payment URLs
   webview_flutter: ^4.7.0  # Add this for PayPal web view
   flutter_paypal: ^0.2.1
   flutter_pdfview: ^1.3.2
   provider: ^6.0.5
-  share_plus: ^7.2.1
+  share_plus: ^10.1.4
   langchain_openai: ^0.7.3
   font_awesome_flutter: ^10.5.0
   percent_indicator: ^4.2.3  # Use the latest version available
@@ -76,7 +76,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
+  flutter_lints: ^5.0.0
 
 # The "flutter_lints" package below contains a set of recommended lints to
 # encourage good coding practices. The lint set provided by the package is
