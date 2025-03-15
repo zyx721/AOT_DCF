@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'comments_sheet.dart';
 import '../view_profile_screen/view_profile_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ReelsScreen extends StatefulWidget {
   final int initialIndex;
@@ -382,6 +383,29 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     return following.contains(creatorId);
   }
 
+  Future<void> _shareVideo(Map<String, dynamic> videoData) async {
+    final String videoTitle = videoData['title'] ?? 'Check out this video';
+    final String videoUrl = videoData['videoUrl'] ?? '';
+    final String creatorName = videoData['creatorName'] ?? 'Anonymous';
+    
+    final String shareText = '''
+$videoTitle
+
+By: $creatorName
+
+Watch here: $videoUrl
+''';
+
+    try {
+      await Share.share(shareText, subject: videoTitle);
+    } catch (e) {
+      print('Error sharing video: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing video. Please try again.'))
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -536,7 +560,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                                   _buildCircleButton(
                                     icon: Icons.share,
                                     label: 'Share',
-                                    onTap: () {/* Share functionality */},
+                                    onTap: () => _shareVideo(videoData),
                                   ),
                                 ],
                               ),
@@ -650,6 +674,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
+            SizedBox(width: 20), // Added space
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')

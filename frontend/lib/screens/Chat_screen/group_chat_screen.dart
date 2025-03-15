@@ -29,17 +29,26 @@ class GroupChatScreen extends StatefulWidget {
   _ChatDetailScreenState createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<GroupChatScreen> {
+class _ChatDetailScreenState extends State<GroupChatScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final currentUser = FirebaseAuth.instance.currentUser;
   bool _isSubmitting = false;
   final GoogleDriveService _driveService = GoogleDriveService();
   bool _isUploadingFile = false;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _markMessagesAsRead();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -116,7 +125,7 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight - 8),
+        preferredSize: const Size.fromHeight(kToolbarHeight + 40),
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -130,196 +139,223 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
               end: Alignment.centerRight,
             ),
           ),
-          child: AppBar(
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => ChatScreen()),
-              ),
-            ),
-            title: Row(
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      backgroundImage: widget.imageUrl.isNotEmpty
-                          ? NetworkImage(widget.imageUrl)
-                          : null,
-                      backgroundColor: Colors.grey[200],
-                      child: widget.imageUrl.isEmpty
-                          ? Icon(Icons.person, color: Colors.grey[400])
-                          : null,
-                      radius: 20,
-                    ),
-                    if (widget.isOnline)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            border: Border.all(color: Colors.white, width: 2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  widget.name,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+          child: Column(
+            children: [
+              AppBar(
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => ChatScreen()),
                   ),
                 ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.block, color: Colors.white),
-                onPressed: () {},
+                title: Row(
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          backgroundImage: widget.imageUrl.isNotEmpty
+                              ? NetworkImage(widget.imageUrl)
+                              : null,
+                          backgroundColor: Colors.grey[200],
+                          child: widget.imageUrl.isEmpty
+                              ? Icon(Icons.person, color: Colors.grey[400])
+                              : null,
+                          radius: 20,
+                        ),
+                        if (widget.isOnline)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                border:
+                                    Border.all(color: Colors.white, width: 2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.name,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.block, color: Colors.white),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    onPressed: () {},
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white),
-                onPressed: () {},
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: 'Direct Messages'),
+                  Tab(text: 'Group Chats'),
+                ],
+                labelStyle: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white.withOpacity(0.7),
+                indicatorColor: Colors.white,
               ),
             ],
           ),
         ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                "Today",
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(widget.chatId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Something went wrong'));
-                }
+          _buildChatSection(isGroupChat: false),
+          _buildChatSection(isGroupChat: true),
+        ],
+      ),
+    );
+  }
 
-                if (!snapshot.hasData) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                final messages = snapshot.data!.docs;
-
-                return ListView.builder(
-                  reverse: true,
-                  padding: EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message =
-                        messages[index].data() as Map<String, dynamic>;
-                    final isMe = message['senderId'] == currentUser?.uid;
-
-                    return buildMessage(
-                      message['message'] ?? '',
-                      isMe,
-                      message['timestamp'] as Timestamp?,
-                      fileUrl: message['fileUrl'],
-                      fileName: message['fileName'],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.all(16),
+  Widget _buildChatSection({required bool isGroupChat}) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade200,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: _isUploadingFile
+            child: Text(
+              "Today",
+              style: GoogleFonts.poppins(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('chats')
+                .doc(widget.chatId)
+                .collection('messages')
+                .orderBy('timestamp', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text('Something went wrong'));
+              }
+
+              if (!snapshot.hasData) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              final messages = snapshot.data!.docs;
+
+              return ListView.builder(
+                reverse: true,
+                padding: EdgeInsets.all(16),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message =
+                      messages[index].data() as Map<String, dynamic>;
+                  final isMe = message['senderId'] == currentUser?.uid;
+
+                  return buildMessage(
+                    message['message'] ?? '',
+                    isMe,
+                    message['timestamp'] as Timestamp?,
+                    fileUrl: message['fileUrl'],
+                    fileName: message['fileName'],
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade200,
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: _isUploadingFile
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.attach_file,
+                        color: const Color(0xFF57AB7D).withOpacity(0.6)),
+                onPressed: _isUploadingFile ? null : _pickAndUploadFile,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: "Type message...",
+                    hintStyle:
+                        GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 26, 126, 51),
+                      Color(0xFF57AB7D),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  icon: _isSubmitting
                       ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.attach_file,
-                          color: const Color(0xFF57AB7D).withOpacity(0.6)),
-                  onPressed: _isUploadingFile ? null : _pickAndUploadFile,
+                      : Icon(Icons.send, color: Colors.white, size: 20),
+                  onPressed: _sendMessage,
                 ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: "Type message...",
-                      hintStyle:
-                          GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
-                      border: InputBorder.none,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color.fromARGB(255, 26, 126, 51),
-                        Color(0xFF57AB7D),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: IconButton(
-                    icon: _isSubmitting
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

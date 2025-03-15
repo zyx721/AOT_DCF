@@ -121,6 +121,23 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Stream<List<Map<String, dynamic>>> getFundraisersStream() {
+    final random = math.Random();
+    final categories = [
+      'food_bank', 'food_bank',
+      'food_bank', // Added multiple times to increase probability
+      'food_delivery', 'food_delivery', // New food-related category
+      'meal_prep', // New food-related category
+      'clothing',
+      'volunteer',
+      'education',
+      'medical',
+      'organization',
+      'fundraising',
+      'events',
+      'logistics',
+      'tech_support'
+    ];
+
     return FirebaseFirestore.instance
         .collection('fundraisers')
         .orderBy('createdAt', descending: true)
@@ -132,6 +149,8 @@ class _MapScreenState extends State<MapScreen> {
           'id': doc.id,
           ...data,
           'location': _generateNearbyLocation(currentLocation),
+          'category': categories[
+              random.nextInt(categories.length)], // Randomize category
         };
       }).toList();
     });
@@ -273,9 +292,13 @@ class _MapScreenState extends State<MapScreen> {
                     radius: 15,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    fundraiser['organizationName'] ?? 'Unknown Organization',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  Expanded(
+                    child: Text(
+                      fundraiser['organizationName'] ??
+                          'Community Initiative ${fundraiser['category']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'SUPPORT'}',
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -491,34 +514,40 @@ class _MapScreenState extends State<MapScreen> {
   IconData _getMarkerIcon(String type) {
     switch (type) {
       case 'food_bank':
-        return FontAwesomeIcons.bowlRice; // Food donation icon
+        return FontAwesomeIcons.basketShopping; // Food collection/distribution
+      case 'food_delivery':
+        return FontAwesomeIcons.handHoldingHeart; // Food delivery with care
+      case 'meal_prep':
+        return FontAwesomeIcons.utensils; // Meal preparation/cooking
       case 'clothing':
-        return FontAwesomeIcons.personDress; // Clothing donation icon
+        return FontAwesomeIcons.handHoldingHand; // Giving/sharing clothing
       case 'volunteer':
-        return FontAwesomeIcons.handshakeAngle; // Volunteering help icon
+        return FontAwesomeIcons.peopleCarry; // Community service
       case 'education':
-        return FontAwesomeIcons.bookOpen; // Education support icon
+        return FontAwesomeIcons.schoolFlag; // School/education focus
       case 'medical':
-        return FontAwesomeIcons.staffSnake; // Medical assistance icon
+        return FontAwesomeIcons.droplet; // Blood donation/medical aid
       case 'organization':
-        return FontAwesomeIcons.peopleGroup; // Organization management icon
+        return FontAwesomeIcons.buildingColumns; // Institutional support
       case 'fundraising':
-        return FontAwesomeIcons.circleDollarToSlot; // Fundraising icon
+        return FontAwesomeIcons.waterLadder; // Water wells/infrastructure
       case 'events':
-        return FontAwesomeIcons.calendar; // Event organization icon
+        return FontAwesomeIcons.handsHoldingChild; // Community events
       case 'logistics':
-        return FontAwesomeIcons.truck; // Transportation/logistics icon
+        return FontAwesomeIcons.boxesStacked; // Aid distribution
       case 'tech_support':
-        return FontAwesomeIcons.laptopCode; // Technical support icon
+        return FontAwesomeIcons.solarPanel; // Environmental/technical solutions
       default:
-        return FontAwesomeIcons.handHoldingHeart; // General help icon
+        return FontAwesomeIcons.heart; // General charity
     }
   }
 
   Color _getMarkerColor(String type) {
     switch (type) {
       case 'food_bank':
-        return const Color(0xFFFF9800); // Orange
+      case 'food_delivery':
+      case 'meal_prep':
+        return const Color(0xFFFF9800); // Orange for all food-related
       case 'clothing':
         return const Color(0xFF9C27B0); // Purple
       case 'volunteer':
