@@ -18,6 +18,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:frontend/screens/view_profile_screen/view_profile_screen.dart';
+import 'package:frontend/services/notification.dart';
 
 class AssociationScreen extends StatefulWidget {
   final Map<String, dynamic> fundraiser;
@@ -82,6 +84,20 @@ class _AssociationScreenState extends State<AssociationScreen> {
         .doc(widget.fundraiser['creatorId']);
 
     try {
+      if (!_isFollowing) {
+        // Create notification when following
+        await PushNotificationService.createNotification(
+          receiverId: widget.fundraiser['creatorId'],
+          senderId: currentUser.uid,
+          type: 'FOLLOW',
+          content: '${currentUser.displayName ?? 'Someone'} started following you in fundraiser',
+          targetId: widget.fundraiser['id'],
+          additionalData: {
+            'fundraiserTitle': widget.fundraiser['title'],
+          },
+        );
+      }
+
       if (_isFollowing) {
         // Unfollow - remove from both following and followers lists
         await userRef.update({

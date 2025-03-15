@@ -9,6 +9,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'comments_sheet.dart';
 import '../view_profile_screen/view_profile_screen.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:frontend/services/notification.dart';
+
 
 class ReelsScreen extends StatefulWidget {
   final int initialIndex;
@@ -111,6 +113,19 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     try {
       final docSnapshot = await userLikeDoc.get();
       final batch = FirebaseFirestore.instance.batch();
+      final videoData = _videoDocuments[_currentIndex].data() as Map<String, dynamic>;
+
+      if (!docSnapshot.exists) {
+        // Like: Create notification when liking
+        await PushNotificationService.createNotification(
+          receiverId: videoData['creatorId'],
+          senderId: user.uid,
+          type: 'LIKE',
+          content: '${user.displayName ?? 'Someone'} liked your video',
+          targetId: videoId,
+          additionalData: {'videoTitle': videoData['title']},
+        );
+      }
 
       if (docSnapshot.exists) {
         // Unlike: Remove user from likes collection and decrease counter
@@ -341,7 +356,17 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         FirebaseFirestore.instance.collection('users').doc(creatorId);
 
     try {
-      final isFollowing = await _isFollowingUser(creatorId);
+      final isFollowing = await _isFollowingUser(creatorId);   
+      if (!isFollowing) {
+        // Create notification when following
+        await PushNotificationService.createNotification(
+          receiverId: creatorId,
+          senderId: currentUser.uid,
+          type: 'FOLLOW',
+          content: '${currentUser.displayName ?? 'Someone'} started following you',
+        );
+      }
+
 
       if (isFollowing) {
         await userRef.update({
