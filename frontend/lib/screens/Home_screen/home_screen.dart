@@ -30,26 +30,25 @@ class VideoCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 150,
-        margin: EdgeInsets.only(right: 8),
+        width: 200, // Increased width
+        margin: EdgeInsets.only(right: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 240,
+              height: 280,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey[300]!, width: 1),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -64,7 +63,9 @@ class VideoCard extends StatelessWidget {
                             placeholder: (context, url) => Container(
                               color: Colors.grey[200],
                               child: Center(
-                                child: CircularProgressIndicator(),
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                                ),
                               ),
                             ),
                             errorWidget: (context, url, error) => Container(
@@ -79,33 +80,67 @@ class VideoCard extends StatelessWidget {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            Colors.black.withOpacity(0.7),
+                            Colors.black.withOpacity(0.8),
                           ],
                         ),
                       ),
                     ),
-                    Center(
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 48,
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.5),
+                                  offset: Offset(0, 1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 8),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Watch Now',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            Container(
-              height: 40,
-              padding: EdgeInsets.only(top: 4),
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -260,12 +295,40 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             ]),
             SizedBox(height: 16), // Reduced spacing
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Text(
-                "Watch the Impact of Your Donation",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Watch the Impact of Your Donation",
+                    style: TextStyle(
+                      fontSize: 17.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // Navigate to search page with videos tab
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SearchPage(initialTabIndex: 1),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'See all',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+            SizedBox(height: 16),
             StreamBuilder<QuerySnapshot>(
               stream: getVideoReels(),
               builder: (context, snapshot) {
@@ -284,10 +347,10 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                 }
 
                 return SizedBox(
-                  height: 280,
+                  height: 320,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16),
                     itemCount: videos.length,
                     itemBuilder: (context, index) {
                       final videoData =
@@ -404,7 +467,6 @@ class _FundraisingHomePageState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Improved header with better spacing and typography
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
@@ -418,7 +480,13 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                   )),
               TextButton.icon(
                 onPressed: () {
-                  // Navigate to see all page
+                  // Navigate to search page with fundraisers tab
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SearchPage(initialTabIndex: 0),
+                    ),
+                  );
                 },
                 icon: Icon(Icons.arrow_forward, size: 16, color: Colors.green),
                 label: Text('See all',

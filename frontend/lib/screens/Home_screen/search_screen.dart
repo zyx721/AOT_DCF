@@ -5,6 +5,13 @@ import '../association_screen.dart';
 import '../reels_screen/reels_screen.dart';
 
 class SearchPage extends StatefulWidget {
+  final int initialTabIndex;
+
+  const SearchPage({
+    Key? key,
+    this.initialTabIndex = 0,
+  }) : super(key: key);
+
   @override
   _SearchPageState createState() => _SearchPageState();
 }
@@ -18,7 +25,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
   }
 
   Stream<QuerySnapshot> getFundraisersStream() {
