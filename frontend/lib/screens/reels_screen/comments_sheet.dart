@@ -77,6 +77,24 @@ class _CommentsSheetState extends State<CommentsSheet> {
         .doc(commentId);
 
     try {
+      final commentDoc = await commentRef.get();
+      final commentData = commentDoc.data();
+      
+      if (commentData != null && !isLiked && commentData['userId'] != user.uid) {
+        // Send notification only when liking (not unliking) and not liking own comment
+        await PushNotificationService.createNotification(
+          receiverId: commentData['userId'],
+          senderId: user.uid,
+          type: 'COMMENT_LIKE',
+          content: '${user.displayName ?? 'Someone'} liked your comment',
+          targetId: widget.videoId,
+          additionalData: {
+            'comment': commentData['comment'],
+            'videoId': widget.videoId,
+          },
+        );
+      }
+
       if (isLiked) {
         await commentRef.update({
           'likes': FieldValue.increment(-1),

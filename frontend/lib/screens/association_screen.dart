@@ -12,6 +12,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:frontend/services/pdf_viewer_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:frontend/screens/view_profile_screen/view_profile_screen.dart';
+import 'package:frontend/services/notification.dart';
 
 class AssociationScreen extends StatefulWidget {
   final Map<String, dynamic> fundraiser;
@@ -76,6 +77,20 @@ class _AssociationScreenState extends State<AssociationScreen> {
         .doc(widget.fundraiser['creatorId']);
 
     try {
+      if (!_isFollowing) {
+        // Create notification when following
+        await PushNotificationService.createNotification(
+          receiverId: widget.fundraiser['creatorId'],
+          senderId: currentUser.uid,
+          type: 'FOLLOW',
+          content: '${currentUser.displayName ?? 'Someone'} started following you in fundraiser',
+          targetId: widget.fundraiser['id'],
+          additionalData: {
+            'fundraiserTitle': widget.fundraiser['title'],
+          },
+        );
+      }
+
       if (_isFollowing) {
         // Unfollow - remove from both following and followers lists
         await userRef.update({
@@ -683,20 +698,40 @@ void _showAddPrayerDialog() {
             if (messageController.text.isNotEmpty) {
               final user = FirebaseAuth.instance.currentUser;
               if (user != null) {
-                await FirebaseFirestore.instance
-                    .collection('fundraisers')
-                    .doc(widget.fundraiser['id'])
-                    .collection('prayers')
-                    .add({
-                  'userId': user.uid,
-                  'userName': user.displayName ?? 'Anonymous',
-                  'photoURL': user.photoURL,
-                  'message': messageController.text,
-                  'timestamp': FieldValue.serverTimestamp(),
-                  'likes': 0,
-                  'likedBy': [],
-                });
-                Navigator.pop(context);
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('fundraisers')
+                      .doc(widget.fundraiser['id'])
+                      .collection('prayers')
+                      .add({
+                    'userId': user.uid,
+                    'userName': user.displayName ?? 'Anonymous',
+                    'photoURL': user.photoURL,
+                    'message': messageController.text,
+                    'timestamp': FieldValue.serverTimestamp(),
+                    'likes': 0,
+                    'likedBy': [],
+                  });
+
+                  // Send notification for new prayer
+                  if (widget.fundraiser['creatorId'] != user.uid) {
+                    await PushNotificationService.createNotification(
+                      receiverId: widget.fundraiser['creatorId'],
+                      senderId: user.uid,
+                      type: 'PRAYER',
+                      content: '${user.displayName ?? 'Someone'} prayed for your fundraiser',
+                      targetId: widget.fundraiser['id'],
+                      additionalData: {
+                        'fundraiserTitle': widget.fundraiser['title'],
+                        'prayer': messageController.text,
+                      },
+                    );
+                  }
+
+                  Navigator.pop(context);
+                } catch (e) {
+                  print('Error adding prayer: $e');
+                }
               }
             }
           },
@@ -721,16 +756,38 @@ Future<void> _toggleLike(String prayerId, bool isLiked) async {
       .collection('prayers')
       .doc(prayerId);
 
-  if (isLiked) {
-    await prayerRef.update({
-      'likes': FieldValue.increment(-1),
-      'likedBy': FieldValue.arrayRemove([user.uid]),
-    });
-  } else {
-    await prayerRef.update({
-      'likes': FieldValue.increment(1),
-      'likedBy': FieldValue.arrayUnion([user.uid]),
-    });
+  try {
+    final prayerDoc = await prayerRef.get();
+    final prayerData = prayerDoc.data();
+    
+    if (!isLiked && prayerData != null && prayerData['userId'] != user.uid) {
+      // Send notification when liking a prayer (not for own prayers)
+      await PushNotificationService.createNotification(
+        receiverId: prayerData['userId'],
+        senderId: user.uid,
+        type: 'PRAYER_LIKE',
+        content: '${user.displayName ?? 'Someone'} liked your prayer',
+        targetId: widget.fundraiser['id'],
+        additionalData: {
+          'fundraiserTitle': widget.fundraiser['title'],
+          'prayer': prayerData['message'],
+        },
+      );
+    }
+
+    if (isLiked) {
+      await prayerRef.update({
+        'likes': FieldValue.increment(-1),
+        'likedBy': FieldValue.arrayRemove([user.uid]),
+      });
+    } else {
+      await prayerRef.update({
+        'likes': FieldValue.increment(1),
+        'likedBy': FieldValue.arrayUnion([user.uid]),
+      });
+    }
+  } catch (e) {
+    print('Error toggling prayer like: $e');
   }
 }
 
