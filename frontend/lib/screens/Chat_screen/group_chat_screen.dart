@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/Chat_screen/chat_screen.dart';
+import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -50,13 +52,13 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
   Future<void> _pickAndUploadFile() async {
     try {
       setState(() => _isUploadingFile = true);
-      
+
       final result = await FilePicker.platform.pickFiles();
       if (result == null) return;
 
       final file = File(result.files.single.path!);
       final fileUrl = await _driveService.uploadFile(file);
-      
+
       // Send message with file
       await _sendMessage(fileUrl: fileUrl, fileName: result.files.single.name);
     } catch (e) {
@@ -69,7 +71,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _sendMessage({String? fileUrl, String? fileName}) async {
-    if ((_messageController.text.trim().isEmpty && fileUrl == null) || _isSubmitting) return;
+    if ((_messageController.text.trim().isEmpty && fileUrl == null) ||
+        _isSubmitting) return;
 
     setState(() => _isSubmitting = true);
 
@@ -132,7 +135,9 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
             backgroundColor: Colors.transparent,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => ChatScreen()),
+              ),
             ),
             title: Row(
               children: [
@@ -231,8 +236,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
                   padding: EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index].data() 
-                        as Map<String, dynamic>;
+                    final message =
+                        messages[index].data() as Map<String, dynamic>;
                     final isMe = message['senderId'] == currentUser?.uid;
 
                     return buildMessage(
@@ -269,7 +274,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.attach_file, color: const Color(0xFF57AB7D).withOpacity(0.6)),
+                      : Icon(Icons.attach_file,
+                          color: const Color(0xFF57AB7D).withOpacity(0.6)),
                   onPressed: _isUploadingFile ? null : _pickAndUploadFile,
                 ),
                 Expanded(
@@ -280,7 +286,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
                       hintStyle:
                           GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ),
@@ -336,7 +343,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
     );
   }
 
-  Widget buildMessage(String text, bool isMe, Timestamp? timestamp, {String? fileUrl, String? fileName}) {
+  Widget buildMessage(String text, bool isMe, Timestamp? timestamp,
+      {String? fileUrl, String? fileName}) {
     Future<void> _launchUrl(String url) async {
       final uri = Uri.parse(url);
       if (await url_launcher.canLaunchUrl(uri)) {
@@ -385,7 +393,8 @@ class _ChatDetailScreenState extends State<GroupChatScreen> {
             ],
           ),
           child: Column(
-            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               if (fileUrl != null) ...[
                 GestureDetector(
