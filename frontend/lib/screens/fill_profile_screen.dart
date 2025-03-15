@@ -19,7 +19,6 @@ class _FillProfileScreenState extends State<FillProfileScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   String? selectedGender;
-  String? selectedCity;
   File? _imageFile;
   bool isLoading = false;
 
@@ -43,7 +42,6 @@ class _FillProfileScreenState extends State<FillProfileScreen> {
           emailController.text = userData.data()?['email'] ?? '';
           phoneController.text = userData.data()?['phone'] ?? '';
           selectedGender = userData.data()?['gender'];
-          selectedCity = userData.data()?['city'];
         });
       }
     }
@@ -105,13 +103,11 @@ class _FillProfileScreenState extends State<FillProfileScreen> {
         'email': emailController.text,
         'phone': phoneController.text,
         'gender': selectedGender,
-        'city': selectedCity,
         if (photoURL != null) 'photoURL': photoURL,
         'profileCompleted': true,
       });
 
       if (mounted) {
-        // Navigate to interests screen instead of navbar
         Navigator.pushReplacementNamed(context, '/select-interests');
       }
     } catch (e) {
@@ -175,9 +171,8 @@ class _FillProfileScreenState extends State<FillProfileScreen> {
                     isMandatory: true),
                 _buildTextField("Phone Number", phoneController, Icons.phone,
                     isMandatory: true),
-                _buildDropdownField("Gender", ["Male", "Female", "Other"],
+                _buildDropdownField("Gender", ["Male", "Female"],
                     (value) => selectedGender = value),
-                _buildCityDropdown(),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: isLoading ? null : _saveProfile,
@@ -255,25 +250,6 @@ class _FillProfileScreenState extends State<FillProfileScreen> {
         onChanged: onChanged,
         validator: (value) => value == null ? "$label is required" : null,
       ),
-    );
-  }
-
-  Widget _buildCityDropdown() {
-    return _buildDropdownField(
-      "City",
-      [
-        "New York",
-        "Los Angeles",
-        "Chicago",
-        "Houston",
-        "Phoenix",
-        "Philadelphia",
-        "San Antonio",
-        "San Diego",
-        "Dallas",
-        "San Jose"
-      ],
-      (value) => setState(() => selectedCity = value),
     );
   }
 
