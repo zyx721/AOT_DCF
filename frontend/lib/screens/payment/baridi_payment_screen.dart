@@ -72,11 +72,11 @@ class _BaridiPaymentScreenState extends State<BaridiPaymentScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.close, color: Colors.black),
+          icon: Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Baridi Pay', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+        title: Text('Baridi Pay', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF336799),
         elevation: 0,
         centerTitle: true,
       ),

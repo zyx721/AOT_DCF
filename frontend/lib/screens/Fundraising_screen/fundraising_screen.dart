@@ -11,7 +11,8 @@ class FundraisingScreen extends StatefulWidget {
   _FundraisingScreenState createState() => _FundraisingScreenState();
 }
 
-class _FundraisingScreenState extends State<FundraisingScreen> {
+class _FundraisingScreenState extends State<FundraisingScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   Stream<QuerySnapshot>? _fundraisersStream;
   int totalCount = 0;
   int ongoingCount = 0;
@@ -20,6 +21,7 @@ class _FundraisingScreenState extends State<FundraisingScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     final User? currentUser = FirebaseAuth.instance.currentUser;
     _fundraisersStream = FirebaseFirestore.instance
         .collection('fundraisers')
@@ -28,6 +30,12 @@ class _FundraisingScreenState extends State<FundraisingScreen> {
 
     // Calculate counts
     _updateCounts();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _updateCounts() async {
@@ -62,107 +70,137 @@ class _FundraisingScreenState extends State<FundraisingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 40),
-            // New navigation bar matching home screen
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+      body: Column(
+        children: [
+          SizedBox(height: 40),
+          // Header
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.campaign, color: Colors.green, size: 30),
+                    SizedBox(width: 10),
+                    Text(
+                      'My Fundraising',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20),
+          
+          // Tab Bar
+          TabBar(
+            controller: _tabController,
+            labelColor: Colors.green,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.green,
+            tabs: [
+              Tab(text: 'Fundraisers'),
+              Tab(text: 'Activity'),
+            ],
+          ),
+          
+          // Tab Bar View
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Fundraisers Tab
+                SingleChildScrollView(
+                  child: Column(
                     children: [
-                      Icon(Icons.campaign, color: Colors.green, size: 30),
-                      SizedBox(width: 10),
-                      Text(
-                        'My Fundraising',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)
+                      // Filter chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          children: [
+                            _buildFilterChip('All ($totalCount)', false),
+                            SizedBox(width: 8),
+                            _buildFilterChip('Ongoing ($ongoingCount)', true),
+                            SizedBox(width: 8),
+                            _buildFilterChip('Past ($pastCount)', false),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      // Existing StreamBuilder with fundraiser cards
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: _fundraisersStream,
+                          builder: (context, snapshot) {
+                            // Trigger counts update when data changes
+                            if (snapshot.hasData) {
+                              _updateCounts();
+                            }
+                            if (snapshot.hasError) {
+                              return Text('Something went wrong');
+                            }
+
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            }
+
+                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    'No fundraisers yet. Create your first one!',
+                                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: snapshot.data!.docs.length,
+                              itemBuilder: (context, index) {
+                                final fundraiserDoc = snapshot.data!.docs[index];
+                                final fundraiserData = fundraiserDoc.data() as Map<String, dynamic>;
+                                
+                                // Calculate days left
+                                final expirationDate = (fundraiserData['expirationDate'] as Timestamp).toDate();
+                                final daysLeft = expirationDate.difference(DateTime.now()).inDays;
+
+                                final fundraiser = {
+                                  ...fundraiserData,
+                                  'id': fundraiserDoc.id,
+                                  'daysLeft': daysLeft,
+                                  // Use default image if mainImageUrl is null
+                                  'image': fundraiserData['mainImageUrl'] ?? 'assets/default_fundraiser.jpg',
+                                };
+
+                                return FundraisingCard(fundraiser);
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                
+                // Activity Tab (Empty for now)
+                Center(
+                  child: Text(
+                    'Activity coming soon',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-            
-            // Filter chips with improved styling
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  _buildFilterChip('All ($totalCount)', false),
-                  SizedBox(width: 8),
-                  _buildFilterChip('Ongoing ($ongoingCount)', true),
-                  SizedBox(width: 8),
-                  _buildFilterChip('Past ($pastCount)', false),
-                ],
-              ),
-            ),
-            
-            SizedBox(height: 16),
-            
-            // Replace the static Fundraiser cards list with StreamBuilder
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _fundraisersStream,
-                builder: (context, snapshot) {
-                  // Trigger counts update when data changes
-                  if (snapshot.hasData) {
-                    _updateCounts();
-                  }
-                  if (snapshot.hasError) {
-                    return Text('Something went wrong');
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          'No fundraisers yet. Create your first one!',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final fundraiserDoc = snapshot.data!.docs[index];
-                      final fundraiserData = fundraiserDoc.data() as Map<String, dynamic>;
-                      
-                      // Calculate days left
-                      final expirationDate = (fundraiserData['expirationDate'] as Timestamp).toDate();
-                      final daysLeft = expirationDate.difference(DateTime.now()).inDays;
-
-                      final fundraiser = {
-                        ...fundraiserData,
-                        'id': fundraiserDoc.id,
-                        'daysLeft': daysLeft,
-                        // Use default image if mainImageUrl is null
-                        'image': fundraiserData['mainImageUrl'] ?? 'assets/default_fundraiser.jpg',
-                      };
-
-                      return FundraisingCard(fundraiser);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
