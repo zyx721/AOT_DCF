@@ -69,17 +69,27 @@ class _AssociationScreenState extends State<AssociationScreen> {
     final userRef = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid);
+    
+    final creatorRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.fundraiser['creatorId']);
 
     try {
       if (_isFollowing) {
-        // Unfollow
+        // Unfollow - remove from both following and followers lists
         await userRef.update({
           'following': FieldValue.arrayRemove([widget.fundraiser['creatorId']])
         });
+        await creatorRef.update({
+          'followers': FieldValue.arrayRemove([currentUser.uid])
+        });
       } else {
-        // Follow
+        // Follow - add to both following and followers lists
         await userRef.update({
           'following': FieldValue.arrayUnion([widget.fundraiser['creatorId']])
+        });
+        await creatorRef.update({
+          'followers': FieldValue.arrayUnion([currentUser.uid])
         });
       }
 

@@ -303,6 +303,52 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _toggleFollow(String creatorId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+    final otherUserRef = FirebaseFirestore.instance.collection('users').doc(creatorId);
+
+    try {
+      final isFollowing = await _isFollowingUser(creatorId);
+      
+      if (isFollowing) {
+        await userRef.update({
+          'following': FieldValue.arrayRemove([creatorId])
+        });
+        await otherUserRef.update({
+          'followers': FieldValue.arrayRemove([currentUser.uid])
+        });
+      } else {
+        await userRef.update({
+          'following': FieldValue.arrayUnion([creatorId])
+        });
+        await otherUserRef.update({
+          'followers': FieldValue.arrayUnion([currentUser.uid])
+        });
+      }
+    } catch (e) {
+      print('Error toggling follow: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating follow status. Please try again.'))
+      );
+    }
+  }
+
+  Future<bool> _isFollowingUser(String creatorId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return false;
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .get();
+
+    final following = userDoc.data()?['following'] ?? [];
+    return following.contains(creatorId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -467,35 +513,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                               left: 16,
                               right: 72,
                               bottom: 20,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundImage: NetworkImage(videoData['creatorAvatar'] ?? 'default_avatar_url'),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        videoData['creatorName'] ?? 'Anonymous',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    videoData['title'] ?? '',
-                                    style: TextStyle(color: whiteColor),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
+                              child: _buildUserInfo(videoData),
                             ),
                           ],
                         );
@@ -541,6 +559,98 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
         Text(
           label,
           style: TextStyle(color: whiteColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserInfo(Map<String, dynamic> videoData) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(videoData['creatorId'])
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return CircleAvatar(
+                    radius: 20,
+                    backgroundImage: NetworkImage('default_avatar_url'),
+                  );
+                }
+                
+                final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                final userPhotoURL = userData?['photoURL'] as String? ?? 'default_avatar_url';
+                
+                return CircleAvatar(
+                  radius: 20,
+                  backgroundImage: NetworkImage(userPhotoURL),
+                );
+              },
+            ),
+            SizedBox(width: 12),
+            Text(
+              videoData['creatorName'] ?? 'Anonymous',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            SizedBox(width: 12),
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(FirebaseAuth.instance.currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container(); // Return empty container while loading
+                }
+                
+                final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                final following = List<String>.from(userData?['following'] ?? []);
+                final isFollowing = following.contains(videoData['creatorId']);
+                
+                return Container(
+                  height: 32,
+                  child: ElevatedButton(
+                    onPressed: () => _toggleFollow(videoData['creatorId']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFollowing ? Colors.transparent : primaryColor,
+                      side: BorderSide(
+                        color: isFollowing ? Colors.white : Colors.transparent,
+                        width: 1,
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      isFollowing ? 'Following' : 'Follow',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: isFollowing ? FontWeight.normal : FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Text(
+          videoData['title'] ?? '',
+          style: TextStyle(color: whiteColor),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
