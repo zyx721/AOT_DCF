@@ -4,12 +4,99 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
+import 'package:frontend/screens/reels_screen/reels_screen.dart';
 import '../../widgets/modern_app_bar.dart'; // Add this import
 import '../association_screen.dart'; // Add this import
 
 class HomeScreen extends StatefulWidget {
   @override
   _FundraisingHomePageState createState() => _FundraisingHomePageState();
+}
+
+class VideoCard extends StatelessWidget {
+  final String image;
+  final String title;
+  final VoidCallback onTap;
+
+  const VideoCard({
+    required this.image,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 160, // Reduced width for phone shape
+        margin: EdgeInsets.only(right: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 240, // Taller height for phone shape
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey[300]!, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      image,
+                      fit: BoxFit.cover,
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        Icons.play_circle_fill,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Remove SizedBox and adjust Text padding
+            Padding(
+              padding: EdgeInsets.only(top: 4), // Reduced from 8 to 4
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _FundraisingHomePageState extends State<HomeScreen> {
@@ -83,62 +170,99 @@ class _FundraisingHomePageState extends State<HomeScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 16), // Add this line for top spacing
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 20.0), // Add bottom padding
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 16), // Add this line for top spacing
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '\$349',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          Text('My wallet balance')
+                        ],
+                      ),
+                      ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                          child: Text('Top up',
+                              style: TextStyle(color: Colors.white)))
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+              _buildImageSlider(),
+              SizedBox(height: 20),
+              _buildFundraisingSection('Urgent Fundraising', [
+                'All',
+                'Medical',
+                'Disaster',
+                'Education',
+                'Environment',
+                'Social',
+                'Sick child',
+                'Infrastructure',
+                'Art',
+                'Orphanage',
+                'Difable',
+                'Humanity',
+                'Others'
+              ]), // Removed Padding
+              SizedBox(height: 20),
+              // Add new video section
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  "Watch the Impact of Your Donation",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(
+                height: 280, // Increased height for phone shape
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '\$349',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                        Text('My wallet balance')
-                      ],
+                    VideoCard(
+                      image: 'assets/images/profile.jpg',
+                      title: "Sarah's Surgery Was Successful",
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ReelsScreen())),
                     ),
-                    ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8))),
-                        child: Text('Top up',
-                            style: TextStyle(color: Colors.white)))
+                    VideoCard(
+                      image: 'assets/images/profile.jpg',
+                      title: "Siamese Twins Surgery Was Successful",
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ReelsScreen())),
+                    ),
                   ],
                 ),
               ),
-            ),
-            SizedBox(height: 20),
-            _buildImageSlider(),
-            SizedBox(height: 20),
-            _buildFundraisingSection('Urgent Fundraising', [
-              'All',
-              'Medical',
-              'Disaster',
-              'Education',
-              'Environment',
-              'Social',
-              'Sick child',
-              'Infrastructure',
-              'Art',
-              'Orphanage',
-              'Difable',
-              'Humanity',
-              'Others'
-            ]), // Removed Padding
-          ],
+            ],
+          ),
         ),
       ),
     );

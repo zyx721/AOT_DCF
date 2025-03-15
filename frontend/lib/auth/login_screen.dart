@@ -287,10 +287,10 @@ class _LoginScreenState extends State<LoginScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color.fromRGBO(255, 255, 255, 1), // Royal Blue
-              Color.fromARGB(65, 26, 126, 51), // Deep Blue
-              Color.fromARGB(120, 26, 126, 51), // Deep Blue
-              Color.fromARGB(255, 26, 126, 51), // Deep Blue
+              Color.fromRGBO(255, 255, 255, 1), 
+              Color.fromARGB(65, 26, 126, 51),   
+              Color.fromARGB(120, 26, 126, 51),
+              Color.fromARGB(255, 26, 126, 51), 
             ],
           ),
         ),
