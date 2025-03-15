@@ -8,6 +8,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../widgets/modern_app_bar.dart';
 import '../models/charity_location.dart';
 import '../screens/association_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -18,28 +22,37 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   LatLng? currentLocation;
+  LatLng? lastMapPosition;
   String selectedPlace = '';
   final MapController mapController = MapController();
-
-  List<CharityLocation> charityLocations = [
-    CharityLocation(
-      id: '1',
-      name: 'Ramadan Food Bank',
-      description: 'Daily iftar meals distribution center',
-      location: LatLng(36.7528, 3.0422),
-      imageUrl:
-          'https://firebasestorage.googleapis.com/v0/b/your-firebase-url/fundraiser1.jpg', // Replace with your actual Firebase Storage URL
-      type: 'food_bank',
-      needsVolunteers: true,
-      nextEvent: DateTime.now().add(const Duration(days: 1)),
-    ),
-    // Add more locations as needed
-  ];
 
   @override
   void initState() {
     super.initState();
+    _loadLastPosition();
     getCurrentLocation();
+  }
+
+  Future<void> _loadLastPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble('last_map_lat');
+    final lng = prefs.getDouble('last_map_lng');
+    final zoom = prefs.getDouble('last_map_zoom') ?? 13.0;
+
+    if (lat != null && lng != null) {
+      setState(() {
+        lastMapPosition = LatLng(lat, lng);
+        mapController.move(lastMapPosition!, zoom);
+      });
+    }
+  }
+
+  Future<void> _saveLastPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final center = mapController.center;
+    await prefs.setDouble('last_map_lat', center.latitude);
+    await prefs.setDouble('last_map_lng', center.longitude);
+    await prefs.setDouble('last_map_zoom', mapController.zoom);
   }
 
   Future<void> getCurrentLocation() async {
@@ -107,9 +120,45 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _showLocationDetails(CharityLocation charity) async {
+  Stream<List<Map<String, dynamic>>> getFundraisersStream() {
+    return FirebaseFirestore.instance
+        .collection('fundraisers')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          ...data,
+          'location': _generateNearbyLocation(currentLocation),
+        };
+      }).toList();
+    });
+  }
+
+  LatLng _generateNearbyLocation(LatLng? baseLocation) {
+    if (baseLocation == null) {
+      return LatLng(36.7528, 3.0422); // Default location
+    }
+
+    // Generate random offset between -0.05 and 0.05 (roughly 5km)
+    final random = math.Random();
+    final latOffset = (random.nextDouble() - 0.5) * 0.1;
+    final lngOffset = (random.nextDouble() - 0.5) * 0.1;
+
+    return LatLng(
+      baseLocation.latitude + latOffset,
+      baseLocation.longitude + lngOffset,
+    );
+  }
+
+  Future<void> _showFundraiserDetails(Map<String, dynamic> fundraiser) async {
     final distance = currentLocation != null
-        ? await _calculateDistance(currentLocation!, charity.location)
+        ? await _calculateDistance(
+            currentLocation!,
+            fundraiser['location'] as LatLng,
+          )
         : null;
 
     showModalBottomSheet(
@@ -122,13 +171,14 @@ class _MapScreenState extends State<MapScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
-                imageUrl: charity.imageUrl,
+                imageUrl:
+                    fundraiser['mainImageUrl'] ?? 'assets/placeholder.jpg',
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
                   color: Colors.grey[300],
-                  child: Center(
+                  child: const Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
@@ -137,23 +187,31 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: Colors.grey[300],
-                  child: Icon(Icons.error, color: Colors.red),
+                  child: const Icon(Icons.error, color: Colors.red),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Text(charity.name,
-                style: Theme.of(context).textTheme.headlineSmall),
-            Text(charity.description),
+            Text(
+              fundraiser['title'] ?? 'Untitled',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             if (distance != null)
               Text('Distance: ${distance.toStringAsFixed(1)} km'),
-            if (charity.needsVolunteers)
-              ElevatedButton(
-                onPressed: () => _volunteerForCharity(charity),
-                child: const Text('Volunteer Now'),
+            ElevatedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AssociationScreen(
+                    fundraiser: fundraiser,
+                  ),
+                ),
               ),
+              child: const Text('View Details'),
+            ),
             TextButton(
-              onPressed: () => _openDirections(charity.location),
+              onPressed: () =>
+                  _openDirections(fundraiser['location'] as LatLng),
               child: const Text('Get Directions'),
             ),
           ],
@@ -182,31 +240,6 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _volunteerForCharity(CharityLocation charity) {
-    final Map<String, dynamic> fundraiserData = {
-      'id': charity.id,
-      'title': charity.name,
-      'mainImageUrl': 'assets/placeholder.jpg', // Updated image path
-      'description': charity.description,
-      'funding': 1000.0,
-      'donationAmount': 5000.0,
-      'donators': 25,
-      'daysLeft': 30,
-      'organization': charity.name,
-      'story': charity.description,
-      'category': charity.type,
-      'expirationDate': DateTime.now().add(const Duration(days: 30)),
-      'createdAt': DateTime.now(),
-    };
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AssociationScreen(fundraiser: fundraiserData),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,44 +249,62 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: mapController,
-            options: MapOptions(
-              center: currentLocation ?? LatLng(36.7528, 3.0422),
-              zoom: 13.0,
-              onTap: (tapPosition, point) {
-                getPlaceName(point);
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                // Remove subdomains to fix the warning
-                tileProvider: NetworkTileProvider(),
-                userAgentPackageName:
-                    'com.example.app', // Add your app package name
-              ),
-              MarkerLayer(
-                markers: [
-                  if (currentLocation != null)
-                    Marker(
-                      point: currentLocation!,
-                      child: const Icon(Icons.my_location, color: Colors.blue),
-                    ),
-                  ...charityLocations.map((charity) => Marker(
-                        point: charity.location,
-                        child: GestureDetector(
-                          onTap: () => _showLocationDetails(charity),
-                          child: Icon(
-                            _getMarkerIcon(charity.type),
-                            color: _getMarkerColor(charity.type),
-                            size: 40,
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: getFundraisersStream(),
+            builder: (context, snapshot) {
+              return FlutterMap(
+                mapController: mapController,
+                options: MapOptions(
+                  center: lastMapPosition ?? LatLng(36.7528, 3.0422),
+                  zoom: 13.0,
+                  onTap: (tapPosition, point) {
+                    getPlaceName(point);
+                  },
+                  onPositionChanged: (MapPosition position, bool hasGesture) {
+                    if (hasGesture) {
+                      _saveLastPosition();
+                    }
+                  },
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    tileProvider: NetworkTileProvider(),
+                    userAgentPackageName: 'com.example.app',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      if (currentLocation != null)
+                        Marker(
+                          point: currentLocation!,
+                          child: const Icon(
+                            Icons.my_location,
+                            color: Colors.blue,
+                            size: 30,
                           ),
                         ),
-                      )),
+                      if (snapshot.hasData)
+                        ...snapshot.data!.map(
+                          (fundraiser) => Marker(
+                            point: fundraiser['location'] as LatLng,
+                            child: GestureDetector(
+                              onTap: () => _showFundraiserDetails(fundraiser),
+                              child: Icon(
+                                _getMarkerIcon(
+                                    fundraiser['category'] ?? 'default'),
+                                color: _getMarkerColor(
+                                    fundraiser['category'] ?? 'default'),
+                                size: 40,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
           if (selectedPlace.isNotEmpty)
             Positioned(
@@ -272,7 +323,11 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: getCurrentLocation,
+        onPressed: () {
+          if (currentLocation != null) {
+            mapController.move(currentLocation!, 15.0);
+          }
+        },
         child: const Icon(Icons.my_location),
       ),
     );
@@ -281,26 +336,54 @@ class _MapScreenState extends State<MapScreen> {
   IconData _getMarkerIcon(String type) {
     switch (type) {
       case 'food_bank':
-        return Icons.restaurant;
+        return FontAwesomeIcons.bowlRice; // Food donation icon
       case 'clothing':
-        return Icons.checkroom;
-      case 'shelter':
-        return Icons.house;
+        return FontAwesomeIcons.personDress; // Clothing donation icon
+      case 'volunteer':
+        return FontAwesomeIcons.handshakeAngle; // Volunteering help icon
+      case 'education':
+        return FontAwesomeIcons.bookOpen; // Education support icon
+      case 'medical':
+        return FontAwesomeIcons.staffSnake; // Medical assistance icon
+      case 'organization':
+        return FontAwesomeIcons.peopleGroup; // Organization management icon
+      case 'fundraising':
+        return FontAwesomeIcons.circleDollarToSlot; // Fundraising icon
+      case 'events':
+        return FontAwesomeIcons.calendar; // Event organization icon
+      case 'logistics':
+        return FontAwesomeIcons.truck; // Transportation/logistics icon
+      case 'tech_support':
+        return FontAwesomeIcons.laptopCode; // Technical support icon
       default:
-        return Icons.place;
+        return FontAwesomeIcons.handHoldingHeart; // General help icon
     }
   }
 
   Color _getMarkerColor(String type) {
     switch (type) {
       case 'food_bank':
-        return Colors.orange;
+        return const Color(0xFFFF9800); // Orange
       case 'clothing':
-        return Colors.purple;
-      case 'shelter':
-        return Colors.green;
+        return const Color(0xFF9C27B0); // Purple
+      case 'volunteer':
+        return const Color(0xFF4CAF50); // Green
+      case 'education':
+        return const Color(0xFF2196F3); // Blue
+      case 'medical':
+        return const Color(0xFFF44336); // Red
+      case 'organization':
+        return const Color(0xFF3F51B5); // Indigo
+      case 'fundraising':
+        return const Color(0xFFFFD700); // Gold
+      case 'events':
+        return const Color(0xFF009688); // Teal
+      case 'logistics':
+        return const Color(0xFF795548); // Brown
+      case 'tech_support':
+        return const Color(0xFF607D8B); // Blue Grey
       default:
-        return Colors.red;
+        return const Color(0xFF673AB7); // Deep Purple
     }
   }
 }

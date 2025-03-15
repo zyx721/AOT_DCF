@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
@@ -8,18 +9,21 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'package:frontend/services/conversation_manager.dart';
+import 'package:frontend/services/role_matcher.dart';
 
 class VoiceChatScreen extends StatefulWidget {
   final WebSocketChannel channel;
   final Stream messageStream;
   final Function(List<Map<String, dynamic>>) onConversationComplete;
   final List<Map<String, dynamic>> initialConversation; // Add this line
+  final RoleMatcher roleMatcher; // Add this line
 
   const VoiceChatScreen({
     Key? key,
     required this.channel,
     required this.messageStream,
     required this.onConversationComplete,
+    required this.roleMatcher, // Add this parameter
     this.initialConversation = const [], // Add this parameter
   }) : super(key: key);
 
@@ -41,12 +45,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   late AnimationController _animationController;
   double _soundLevel = 0.0;
 
+  // Add these properties
+  List<String> _detectedRoles = [];
+  bool _showRoleOptions = false;
+  bool _showRoleDetails = false;
+  String? _selectedRole;
+  String? _selectedRoleDetails;
+
   @override
   void initState() {
     super.initState();
-    _loadConversationHistory();
-    // Initialize conversation with existing history
-    _conversation = List.from(widget.initialConversation);
+    // Load the complete conversation history from ConversationManager
+    _conversation = List.from(ConversationManager.history);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeSpeech();
@@ -58,6 +68,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
       );
       Future.delayed(Duration(milliseconds: 500), _startListening);
       _setupMessageListener();
+      // Set up history listener
+      ConversationManager.historyStream.listen((history) {
+        if (mounted) {
+          setState(() {
+            _conversation = List.from(history);
+          });
+        }
+      });
     });
   }
 
@@ -172,11 +190,25 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   }
 
   void _saveConversationToHistory(Map<String, dynamic> message) {
-    _conversation.add(message);
     ConversationManager.addMessage(message);
-    // Print conversation for debugging
-    _logMessage(
-        '${message['isUser'] ? "User" : "Bot"}: ${message['text']}\nTimestamp: ${message['timestamp']}');
+    widget.onConversationComplete(ConversationManager.history);
+  }
+
+  List<String> _detectRoles(String text) {
+    final rolePattern =
+        RegExp(r'(?:^|\n)#(\d+)[:\s-]+([^\n.]+)', multiLine: true);
+    final matches = rolePattern.allMatches(text);
+    final roles = <String>[];
+
+    for (var match in matches) {
+      final roleNumber = match.group(1);
+      final roleTitle = match.group(2)?.trim();
+      if (roleTitle != null) {
+        final role = '#$roleNumber: $roleTitle';
+        roles.add(role);
+      }
+    }
+    return roles.take(3).toList();
   }
 
   Future<void> _handleSpeechResult(String text) async {
@@ -199,30 +231,26 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
     try {
       _logMessage('Generating response for: $text');
 
-      // Build conversation history prompt
-      final contextPrompt = ConversationManager.getContextPrompt();
-      var conversationContext = StringBuffer(contextPrompt);
-      conversationContext.writeln('\nPrevious conversation:');
+      // Use RoleMatcher to generate contextual prompt
+      final contextualPrompt = widget.roleMatcher.generateRoleMatchPrompt(text);
+      _logMessage('Using contextual prompt: $contextualPrompt');
 
-      // Add last few messages for context
-      final recentMessages = _conversation.reversed.take(5).toList().reversed;
-      for (var msg in recentMessages) {
-        conversationContext
-            .writeln('${msg['isUser'] ? 'User' : 'Assistant'}: ${msg['text']}');
-      }
-
-      // Add current message
-      conversationContext.writeln('User: $text');
-
-      _logMessage(
-          'Using conversation context: ${conversationContext.toString()}');
-
-      // Create content with full context
-      final content = [genai.Content.text(conversationContext.toString())];
+      final content = [
+        genai.Content.text(contextualPrompt +
+            "\nPlease format any role suggestions with #1, #2, etc.")
+      ];
       final response = await model.generateContent(content);
       final responseText =
           response.text ?? "Sorry, I couldn't generate a response";
       _logMessage('Received response: $responseText');
+
+      final detectedRoles = _detectRoles(responseText);
+      if (detectedRoles.isNotEmpty) {
+        setState(() {
+          _detectedRoles = detectedRoles;
+          _showRoleOptions = true;
+        });
+      }
 
       final botMessage = {
         'text': responseText,
@@ -437,6 +465,208 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
     );
   }
 
+  void _handleRoleSelection(int index) {
+    if (index < _detectedRoles.length) {
+      final selectedRole = _detectedRoles[index];
+      final roleDetails = """
+Role: ${selectedRole.replaceAll(RegExp(r'^#\d+:\s*'), '')}
+
+Description:
+• Help organize and coordinate volunteer activities
+• Work closely with team members
+• Contribute to the success of our Ramadan charity campaign
+
+Requirements:
+• Good communication skills
+• Ability to work in a team
+• Commitment to the cause
+
+Time Commitment: 
+• 5-10 hours per week
+• Flexible scheduling
+
+Location: 
+• Mix of remote and on-site work
+""";
+
+      setState(() {
+        _selectedRole = selectedRole;
+        _selectedRoleDetails = roleDetails;
+        _showRoleDetails = true;
+        _showRoleOptions = false;
+      });
+    }
+  }
+
+  void _handleRoleConfirmation(bool accepted) {
+    setState(() {
+      _showRoleDetails = false;
+      if (accepted && _selectedRole != null) {
+        _saveConversationToHistory({
+          'text':
+              'You have accepted the role: $_selectedRole\n\nRole Details:\n$_selectedRoleDetails\n\nOur team will contact you soon with further details.',
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      }
+      _selectedRole = null;
+      _selectedRoleDetails = null;
+    });
+  }
+
+  Widget _buildRoleOptions() {
+    if (!_showRoleOptions || _detectedRoles.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 0,
+      right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.volunteer_activism,
+                          color: Color.fromARGB(255, 26, 126, 51),
+                          size: 20,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Recommended Roles',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Color.fromARGB(255, 26, 126, 51),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, size: 20, color: Colors.grey[600]),
+                        onPressed: () {
+                          setState(() {
+                            _showRoleOptions = false;
+                            _detectedRoles = [];
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  constraints: BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _detectedRoles.length,
+                    itemBuilder: (context, index) {
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _handleRoleSelection(index),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '#${index + 1}',
+                                      style: GoogleFonts.poppins(
+                                        color: Color.fromARGB(255, 26, 126, 51),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _detectedRoles[index].replaceAll(RegExp(r'^#\d+:\s*'), ''),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Tap to select this role',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 16,
+                                  color: Colors.grey[400],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -499,6 +729,9 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
                 ],
               ),
             ),
+            // Add these widgets to the stack
+            if (_showRoleOptions) _buildRoleOptions(),
+            if (_showRoleDetails) _buildRoleDetails(),
           ],
         ),
       ),
@@ -513,10 +746,143 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
     return "Tap to speak";
   }
 
+  Widget _buildRoleDetails() {
+    if (!_showRoleDetails ||
+        _selectedRole == null ||
+        _selectedRoleDetails == null) {
+      return SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 0,
+      right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.assignment_outlined,
+                          color: Color.fromARGB(255, 26, 126, 51),
+                          size: 20,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Role Details',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Color.fromARGB(255, 26, 126, 51),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: Colors.grey[600]),
+                        onPressed: () => setState(() {
+                          _showRoleDetails = false;
+                          _selectedRole = null;
+                          _selectedRoleDetails = null;
+                        }),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _selectedRoleDetails!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => _handleRoleConfirmation(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[300],
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text('Decline',
+                                style: TextStyle(color: Colors.black87)),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _handleRoleConfirmation(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color.fromARGB(255, 26, 126, 51),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text('Accept Role',
+                                style: TextStyle(
+                                    color: const Color.fromARGB(
+                                        221, 255, 255, 255))),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    // Update shared history before disposing
-    ConversationManager.updateHistory(_conversation);
+    // Remove extra history update since ConversationManager handles it
     flutterTts.stop();
     _logMessage('Stopping TTS and cleaning up');
     _logMessage('Conversation history:');

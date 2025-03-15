@@ -4,12 +4,114 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/screens/Chatbot_screen/chatbot.dart';
+import 'package:frontend/screens/reels_screen/reels_screen.dart';
 import '../../widgets/modern_app_bar.dart'; // Add this import
 import '../association_screen.dart'; // Add this import
 
 class HomeScreen extends StatefulWidget {
   @override
   _FundraisingHomePageState createState() => _FundraisingHomePageState();
+}
+
+class VideoCard extends StatelessWidget {
+  final String image;
+  final String title;
+  final VoidCallback onTap;
+
+  const VideoCard({
+    required this.image,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 150,
+        margin: EdgeInsets.only(right: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 240,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey[300]!, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    image.startsWith('assets/')
+                        ? Image.asset(
+                            image,
+                            fit: BoxFit.cover,
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: image,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: Icon(Icons.error),
+                            ),
+                          ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        Icons.play_circle_fill,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              height: 40,
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _FundraisingHomePageState extends State<HomeScreen> {
@@ -63,6 +165,14 @@ class _FundraisingHomePageState extends State<HomeScreen> {
     }
   }
 
+  Stream<QuerySnapshot> getVideoReels() {
+    return FirebaseFirestore.instance
+        .collection('videos')
+        .orderBy('createdAt', descending: true)
+        .limit(5)
+        .snapshots();
+  }
+
   void setFilter(String? filter) {
     setState(() {
       _selectedFilter = filter ?? 'All';
@@ -86,9 +196,10 @@ class _FundraisingHomePageState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 16), // Add this line for top spacing
+            SizedBox(height: 12), // Reduced spacing
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              padding:
+                  EdgeInsets.symmetric(horizontal: 12.0), // Reduced padding
               child: Container(
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -120,9 +231,9 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 16), // Reduced spacing
             _buildImageSlider(),
-            SizedBox(height: 20),
+            SizedBox(height: 16), // Reduced spacing
             _buildFundraisingSection('Urgent Fundraising', [
               'All',
               'Medical',
@@ -137,7 +248,57 @@ class _FundraisingHomePageState extends State<HomeScreen> {
               'Difable',
               'Humanity',
               'Others'
-            ]), // Removed Padding
+            ]),
+            SizedBox(height: 16), // Reduced spacing
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: Text(
+                "Watch the Impact of Your Donation",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            StreamBuilder<QuerySnapshot>(
+              stream: getVideoReels(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Something went wrong'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                final videos = snapshot.data?.docs ?? [];
+
+                if (videos.isEmpty) {
+                  return Center(child: Text('No videos available'));
+                }
+
+                return SizedBox(
+                  height: 280,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: videos.length,
+                    itemBuilder: (context, index) {
+                      final videoData =
+                          videos[index].data() as Map<String, dynamic>;
+                      return VideoCard(
+                        image: videoData['mainImageUrl'] ??
+                            'assets/images/placeholder.jpg',
+                        title: videoData['title'] ?? 'Untitled',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ReelsScreen(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -348,7 +509,7 @@ class _FundraisingHomePageState extends State<HomeScreen> {
 
             // Improved card list with better styling and animations
             return Container(
-              height: 260, // Increased from 220 to accommodate content
+              height: 320, // Increased from 260 to give more space
               child: ListView.builder(
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 scrollDirection: Axis.horizontal,
@@ -366,10 +527,10 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                     padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
                     child: Container(
                       width: 280, // Slightly wider for better proportions
-                      // Add constraints to prevent overflow
+                      // Update constraints for new height
                       constraints: BoxConstraints(
-                        minHeight: 240,
-                        maxHeight: 260,
+                        minHeight: 300,
+                        maxHeight: 320,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -382,291 +543,378 @@ class _FundraisingHomePageState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AssociationScreen(
-                                    fundraiser: {
-                                      'id': fundraiser.id,
-                                      ...fundraiser.data()
-                                          as Map<String, dynamic>,
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                            splashColor: Colors.green.withOpacity(0.1),
+                      child: Stack(
+                        // Changed from ClipRRect to Stack
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Stack(
-                                  children: [
-                                    // Improved image display with shimmer loading
-                                    Container(
-                                      height: 140,
-                                      width: double.infinity,
-                                      child: CachedNetworkImage(
-                                        imageUrl: fundraiser['mainImageUrl'] ??
-                                            'assets/placeholder.jpg',
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            Container(
-                                          color: Colors.grey[300],
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.green),
-                                            ),
-                                          ),
-                                        ),
-                                        errorWidget: (context, url, error) =>
-                                            Container(
-                                          color: Colors.grey[300],
-                                          child: Icon(Icons.error,
-                                              color: Colors.red),
-                                        ),
-                                      ),
-                                    ),
-
-                                    // Better overlay indicators
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Row(
-                                        children: [
-                                          // Improved days left indicator
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 10, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.black.withOpacity(0.7),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.access_time,
-                                                    color: Colors.white,
-                                                    size: 12),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  '$daysLeft days left',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(width: 8),
-
-                                          // Chat icon button
-                                          Material(
-                                            color:
-                                                Colors.black.withOpacity(0.7),
-                                            shape: CircleBorder(),
-                                            child: InkWell(
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        ChatPage(),
-                                                  ),
-                                                );
+                                // Main card content
+                                Expanded(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                AssociationScreen(
+                                              fundraiser: {
+                                                'id': fundraiser.id,
+                                                ...fundraiser.data()
+                                                    as Map<String, dynamic>,
                                               },
-                                              customBorder: CircleBorder(),
-                                              child: Padding(
-                                                padding: EdgeInsets.all(6),
-                                                child: Icon(
-                                                  Icons.chat_bubble_outline,
-                                                  color: Colors.white,
-                                                  size: 18,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      splashColor:
+                                          Colors.green.withOpacity(0.1),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Stack(
+                                            children: [
+                                              // Improved image display with shimmer loading
+                                              Container(
+                                                height: 140,
+                                                width: double.infinity,
+                                                child: CachedNetworkImage(
+                                                  imageUrl: fundraiser[
+                                                          'mainImageUrl'] ??
+                                                      'assets/placeholder.jpg',
+                                                  fit: BoxFit.cover,
+                                                  placeholder: (context, url) =>
+                                                      Container(
+                                                    color: Colors.grey[300],
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<
+                                                                    Color>(
+                                                                Colors.green),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  errorWidget:
+                                                      (context, url, error) =>
+                                                          Container(
+                                                    color: Colors.grey[300],
+                                                    child: Icon(Icons.error,
+                                                        color: Colors.red),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                          SizedBox(width: 8),
 
-                                          // Improved favorite button
-                                          StreamBuilder<bool>(
-                                            stream: isFavorite(fundraiser.id),
-                                            builder: (context, snapshot) {
-                                              final isFavorited =
-                                                  snapshot.data ?? false;
-                                              return Material(
-                                                color: Colors.black
-                                                    .withOpacity(0.7),
-                                                shape: CircleBorder(),
-                                                child: InkWell(
-                                                  onTap: () => toggleFavorite(
-                                                      fundraiser.id),
-                                                  customBorder: CircleBorder(),
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(6),
-                                                    child: AnimatedSwitcher(
-                                                      duration: Duration(
-                                                          milliseconds: 300),
-                                                      transitionBuilder:
-                                                          (child, animation) {
-                                                        return ScaleTransition(
-                                                            scale: animation,
-                                                            child: child);
+                                              // Better overlay indicators
+                                              Positioned(
+                                                top: 8,
+                                                right: 8,
+                                                child: Row(
+                                                  children: [
+                                                    // Days left indicator
+                                                    Container(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                              horizontal: 10,
+                                                              vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black
+                                                            .withOpacity(0.7),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                              Icons.access_time,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 12),
+                                                          SizedBox(width: 4),
+                                                          Text(
+                                                            '$daysLeft days left',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 8),
+
+                                                    // Improved favorite button
+                                                    StreamBuilder<bool>(
+                                                      stream: isFavorite(
+                                                          fundraiser.id),
+                                                      builder:
+                                                          (context, snapshot) {
+                                                        final isFavorited =
+                                                            snapshot.data ??
+                                                                false;
+                                                        return Material(
+                                                          color: Colors.black
+                                                              .withOpacity(0.7),
+                                                          shape: CircleBorder(),
+                                                          child: InkWell(
+                                                            onTap: () =>
+                                                                toggleFavorite(
+                                                                    fundraiser
+                                                                        .id),
+                                                            customBorder:
+                                                                CircleBorder(),
+                                                            child: Padding(
+                                                              padding:
+                                                                  EdgeInsets
+                                                                      .all(6),
+                                                              child:
+                                                                  AnimatedSwitcher(
+                                                                duration: Duration(
+                                                                    milliseconds:
+                                                                        300),
+                                                                transitionBuilder:
+                                                                    (child,
+                                                                        animation) {
+                                                                  return ScaleTransition(
+                                                                      scale:
+                                                                          animation,
+                                                                      child:
+                                                                          child);
+                                                                },
+                                                                child: Icon(
+                                                                  isFavorited
+                                                                      ? Icons
+                                                                          .favorite
+                                                                      : Icons
+                                                                          .favorite_border,
+                                                                  color: isFavorited
+                                                                      ? Colors
+                                                                          .red
+                                                                      : Colors
+                                                                          .white,
+                                                                  size: 18,
+                                                                  key: ValueKey<
+                                                                          bool>(
+                                                                      isFavorited),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        );
                                                       },
-                                                      child: Icon(
-                                                        isFavorited
-                                                            ? Icons.favorite
-                                                            : Icons
-                                                                .favorite_border,
-                                                        color: isFavorited
-                                                            ? Colors.red
-                                                            : Colors.white,
-                                                        size: 18,
-                                                        key: ValueKey<bool>(
-                                                            isFavorited),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+
+                                              // Category tag (assuming 'category' field exists)
+                                              if (fundraiser['category'] !=
+                                                  null)
+                                                Positioned(
+                                                  left: 8,
+                                                  top: 8,
+                                                  child: Container(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                            horizontal: 10,
+                                                            vertical: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black
+                                                          .withOpacity(
+                                                              0.7), // Changed from green to black with opacity
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              20),
+                                                    ),
+                                                    child: Text(
+                                                      fundraiser['category'],
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              );
-                                            },
+                                            ],
                                           ),
+
+                                          // Improved content section
+                                          Expanded(
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12.0,
+                                                vertical:
+                                                    4.0, // Reduced from 8.0
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    fundraiser['title'],
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 16,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  SizedBox(
+                                                      height:
+                                                          4), // Reduced from 6
+
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    child:
+                                                        LinearProgressIndicator(
+                                                      value: progress,
+                                                      backgroundColor:
+                                                          Colors.grey[200],
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<
+                                                              Color>(
+                                                        progress >= 1.0
+                                                            ? Colors.blue
+                                                            : Colors.green,
+                                                      ),
+                                                      minHeight:
+                                                          4, // Reduced from 6
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                      height:
+                                                          4), // Reduced from 6
+
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            '\$${fundraiser['funding'].toStringAsFixed(0)}',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.green,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            ' of \$${fundraiser['donationAmount'].toStringAsFixed(0)}',
+                                                            style: TextStyle(
+                                                              color: Colors
+                                                                  .grey[600],
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                            Icons.people,
+                                                            size: 13,
+                                                            color: Colors
+                                                                .grey[600],
+                                                          ),
+                                                          SizedBox(width: 2),
+                                                          Text(
+                                                            '${fundraiser['donators']} donors',
+                                                            style: TextStyle(
+                                                              color: Colors
+                                                                  .grey[600],
+                                                              fontSize: 11,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          )
                                         ],
                                       ),
                                     ),
-
-                                    // Category tag (assuming 'category' field exists)
-                                    if (fundraiser['category'] != null)
-                                      Positioned(
-                                        left: 8,
-                                        top: 8,
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.green.withOpacity(0.9),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
+                                  ),
+                                ),
+                                // Gradient button at the bottom with no margin
+                                Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFF66BB6A), // Light green
+                                        Color(0xFF4CAF50), // Medium green
+                                        Color(0xFF388E3C), // Dark green
+                                        Color(0xFF2E7D32), // Darker green
+                                      ],
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                    ),
+                                    borderRadius: BorderRadius.only(
+                                      bottomLeft: Radius.circular(16),
+                                      bottomRight: Radius.circular(16),
+                                    ),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ChatPage(),
                                           ),
-                                          child: Text(
-                                            fundraiser['category'],
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        );
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 12),
+                                        child: Text(
+                                          'Become a Part',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
-
-                                // Improved content section
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Column(
-                                      mainAxisSize:
-                                          MainAxisSize.min, // Add this
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Title with ellipsis for long text
-                                        Text(
-                                          fundraiser['title'],
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 16,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        SizedBox(height: 8),
-
-                                        // Better progress indicator
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: progress,
-                                            backgroundColor: Colors.grey[200],
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              progress >= 1.0
-                                                  ? Colors.blue
-                                                  : Colors.green,
-                                            ),
-                                            minHeight: 6,
-                                          ),
-                                        ),
-                                        SizedBox(height: 8),
-
-                                        // Improved stats row
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '\$${fundraiser['funding'].toStringAsFixed(0)}',
-                                                  style: TextStyle(
-                                                    color: Colors.green,
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  'of \$${fundraiser['donationAmount'].toStringAsFixed(0)}',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.people,
-                                                  size: 14,
-                                                  color: Colors.grey[600],
-                                                ),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  '${fundraiser['donators']} donors',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
                                     ),
                                   ),
-                                )
+                                ),
                               ],
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   );

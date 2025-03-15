@@ -7,14 +7,14 @@ import 'dart:io';
 import '../../services/drive.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 
-class ChatDetailScreen extends StatefulWidget {
+class GroupChatScreen extends StatefulWidget {
   final String chatId;
   final String otherUserId;
   final String name;
   final String imageUrl;
   final bool isOnline;
 
-  const ChatDetailScreen({
+  const GroupChatScreen({
     Key? key,
     required this.chatId,
     required this.otherUserId,
@@ -27,7 +27,7 @@ class ChatDetailScreen extends StatefulWidget {
   _ChatDetailScreenState createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _ChatDetailScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final currentUser = FirebaseAuth.instance.currentUser;
   bool _isSubmitting = false;

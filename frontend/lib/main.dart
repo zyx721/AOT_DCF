@@ -10,6 +10,7 @@ import 'screens/navbar_screen.dart';
 import 'screens/select_country_screen.dart'; // Add this line
 import 'screens/fill_profile_screen.dart';
 import 'screens/select_interest_screen.dart';
+
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print("Handling a background message: ${message.messageId}");
@@ -19,23 +20,28 @@ Future<String> _determineInitialRoute() async {
   final prefs = await SharedPreferences.getInstance();
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   final user = FirebaseAuth.instance.currentUser;
-  
+
   // Only consider logged in if both SharedPreferences flag is set AND user is authenticated
   return (isLoggedIn && user != null) ? '/navbar' : '/login';
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Request notification permissions
-  final messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+    // Request notification permissions
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  } catch (e) {
+    print('Initialization error: $e');
+    // Handle initialization error appropriately
+  }
 
   runApp(const MyApp());
 }
@@ -58,7 +64,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           final route = snapshot.data ?? '/login';
           return _buildScreenForRoute(route);
         },
@@ -68,8 +74,10 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignupScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/navbar': (context) => const NavBarScreen(),
-        '/select-country': (context) => const SelectCountryScreen(), // Add this line
-        '/fill-profile': (context) => const FillProfileScreen(), // Add this line
+        '/select-country': (context) =>
+            const SelectCountryScreen(), // Add this line
+        '/fill-profile': (context) =>
+            const FillProfileScreen(), // Add this line
         '/select-interests': (context) => const SelectInterestScreen(),
       },
     );

@@ -172,6 +172,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final userData = snapshot.data!.data() as Map<String, dynamic>;
           final interests = (userData['interests'] as List<dynamic>?) ?? [];
           final aboutMe = userData['aboutMe'] as String? ?? "No description provided yet.";
+          
+          // Get fundraisers count
+          final fundraisers = (userData['fundraisers'] as List<dynamic>?)?.length ?? 0;
+          
+          // Get followers and following counts from arrays if they exist
+          final followers = (userData['followers'] as List<dynamic>?)?.length ?? 0;
+          final following = (userData['following'] as List<dynamic>?)?.length ?? 0;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -290,9 +297,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _buildStatItem("Fundraising", "0"),
-                            _buildStatItem("Followers", "0"),
-                            _buildStatItem("Following", "0"),
+                            _buildStatItem("Fundraising", fundraisers.toString()),
+                            _buildStatItem("Followers", followers.toString()),
+                            _buildStatItem("Following", following.toString()),
                           ],
                         ),
                         const SizedBox(height: 16),

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:frontend/screens/Chatbot_screen/voice_chat_screen.dart';
 import 'package:frontend/screens/colors.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -13,6 +16,8 @@ import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:frontend/services/conversation_manager.dart';
 import 'package:frontend/widgets/modern_app_bar.dart';
 import 'package:lottie/lottie.dart'; // Add this import
+import 'package:frontend/services/vector_store.dart';
+import 'package:frontend/services/role_matcher.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -35,11 +40,24 @@ class _ChatPageState extends State<ChatPage> {
   bool _isGeneratingResponse = false;
   Timer? _autoSaveTimer;
   StreamSubscription? _historySubscription;
+  String? _currentFileContent;
+  String? _currentFileName;
+  final VectorStore _vectorStore = VectorStore();
+  final RoleMatcher _roleMatcher = RoleMatcher();
+  bool _showRoleConfirmation = false;
+  String? _suggestedRole;
+  List<String> _detectedRoles = [];
+  bool _showRoleOptions = false;
+  bool _showRoleDetails = false;
+  String? _selectedRole;
+  String? _selectedRoleDetails;
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    // Remove the system prompt from initState since it's now handled in _setupRoleMatcher
+
     // Set up auto-save timer
     _autoSaveTimer = Timer.periodic(Duration(seconds: 1), (_) {
       ConversationManager.saveHistory();
@@ -69,6 +87,121 @@ class _ChatPageState extends State<ChatPage> {
     _connectWebSocket();
     _setupAudioPlayerListeners();
     _initializeGemini();
+    _setupRoleMatcher();
+  }
+
+  Future<void> _setupRoleMatcher() async {
+    try {
+      final documentContent =
+          await rootBundle.loadString('assets/documents/document.txt');
+      final userContent =
+          await rootBundle.loadString('assets/documents/user.txt');
+      final userProfile = _parseUserProfile(userContent);
+
+      _roleMatcher.initializeWithDocuments(
+        documentContent: documentContent,
+        userProfile: userProfile,
+        rawUserProfile: userContent,
+      );
+
+      // Generate initial context and add to conversation
+      final initialContext = _roleMatcher.generateRoleMatchPrompt();
+      print('\n🚀 INITIAL CONTEXT SET');
+
+      if (mounted && initialContext.isNotEmpty) {
+        setState(() {
+          _messages.clear();
+          _messages.add(ChatMessage(
+            text:
+                "Hello! I'm here to help you find the perfect role in our Ramadan charity campaign.",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+        });
+
+        // Store initial context in conversation history
+        ConversationManager.addMessage({
+          'text': initialContext,
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+          'isContext': true, // Mark as context message
+        });
+      }
+    } catch (e) {
+      print('❌ Error setting up role matcher: $e');
+    }
+  }
+
+  Map<String, dynamic> _parseUserProfile(String content) {
+    try {
+      // Clean up the content and ensure proper JSON formatting
+      content = content
+          .replaceAll("'", '"')
+          .replaceAll(RegExp(r',\s*}$'), '}')
+          .trim();
+
+      print('📝 Raw profile content:');
+      print(content);
+
+      final Map<String, dynamic> rawProfile = json.decode(content);
+
+      // Enhanced regex patterns with better handling of different formats
+      final RegExp namePattern =
+          RegExp(r'Name:\s*([^,\n]+)', caseSensitive: false);
+      final RegExp occupationPattern =
+          RegExp(r'Occupation:\s*([^,\n]+)', caseSensitive: false);
+      final RegExp capacityPattern =
+          RegExp(r'Donation Capacity:\s*([^,\n]+)', caseSensitive: false);
+
+      // Extract background information
+      final background = rawProfile['background'] as String? ?? '';
+
+      // Extract specific fields with null safety
+      final name =
+          namePattern.firstMatch(background)?.group(1)?.trim() ?? 'Unknown';
+      final occupation =
+          occupationPattern.firstMatch(background)?.group(1)?.trim() ??
+              'Not specified';
+      final capacity = capacityPattern.firstMatch(background)?.group(1)?.trim();
+
+      // Build profile with default values for null cases
+      final profile = {
+        'background': background,
+        'capacity': rawProfile['capacity'] ?? 'Not specified',
+        'motivations': rawProfile['motivations'] ?? 'Not specified',
+        'skills': rawProfile['skills'] ?? 'Not specified',
+        'interests': rawProfile['interests'] ?? 'Not specified',
+        'experience': rawProfile['experience'] ?? 'Not specified',
+        'values': rawProfile['values'] ?? 'Not specified',
+        'goals': rawProfile['goals'] ?? 'Not specified',
+        'context': rawProfile['context'] ?? '',
+        'name': name,
+        'occupation': occupation,
+        'donation_capacity': capacity ?? 'Not specified',
+      };
+
+      print('✅ Parsed profile:');
+      print(json.encode(profile));
+
+      return profile;
+    } catch (e) {
+      print('❌ Error parsing user profile: $e');
+      // Return a default profile instead of empty map
+      return {
+        'background': 'Not provided',
+        'capacity': 'Not specified',
+        'motivations': 'Not specified',
+        'skills': 'Not specified',
+        'interests': 'Not specified',
+        'experience': 'Not specified',
+        'values': 'Not specified',
+        'goals': 'Not specified',
+        'context': '',
+        'name': 'Unknown User',
+        'occupation': 'Not specified',
+        'donation_capacity': 'Not specified',
+      };
+    }
   }
 
   Future<void> _loadConversationHistory() async {
@@ -220,28 +353,75 @@ class _ChatPageState extends State<ChatPage> {
         apiKey: 'AIzaSyDjsiA8U72-Zqt3xD4cEUHW8V5NooY6Y2A');
   }
 
+  List<String> _detectRoles(String text) {
+    // Updated pattern to be more flexible in matching role formats
+    final rolePattern =
+        RegExp(r'(?:^|\n)#(\d+)[:\s-]+([^\n.]+)', multiLine: true);
+    final matches = rolePattern.allMatches(text);
+    final roles = <String>[];
+
+    print('\n🔍 DETECTING ROLES IN RESPONSE:');
+    print('Text being analyzed:\n$text\n');
+
+    for (var match in matches) {
+      final roleNumber = match.group(1);
+      final roleTitle = match.group(2)?.trim();
+      if (roleTitle != null) {
+        final role = '#$roleNumber: $roleTitle';
+        roles.add(role);
+        print('✅ Found role: $role');
+      }
+    }
+
+    if (roles.isEmpty) {
+      print('❌ No roles found in the response');
+    } else {
+      print('📋 Total roles found: ${roles.length}');
+      print('🎯 First 3 roles to display: ${roles.take(3).join("\n")}');
+    }
+
+    return roles.take(3).toList();
+  }
+
   Future<void> _handleSubmitted(String text) async {
-    _messageController.clear();
     if (text.trim().isEmpty) return;
+    _messageController.clear();
 
     final userMessage = {
       'text': text,
       'isUser': true,
       'timestamp': DateTime.now().toIso8601String(),
     };
-
-    // Only use ConversationManager to handle messages
     ConversationManager.addMessage(userMessage);
+
     setState(() => _isGeneratingResponse = true);
 
     try {
-      final contextPrompt = ConversationManager.getContextPrompt();
-      final prompt = contextPrompt + "\nUser: " + text;
-
-      final content = [genai.Content.text(prompt)];
+      final contextualPrompt = _roleMatcher.generateRoleMatchPrompt(text);
+      final content = [
+        genai.Content.text(contextualPrompt +
+            "\nPlease format any role suggestions with #1, #2, etc.")
+      ];
       final response = await model.generateContent(content);
       final responseText =
           response.text ?? "Sorry, I couldn't generate a response";
+
+      print('\n✨ RESPONSE GENERATED');
+      print('Analyzing response for roles...');
+
+      final detectedRoles = _detectRoles(responseText);
+
+      if (detectedRoles.isNotEmpty) {
+        print('\n🎉 SHOWING ROLE OPTIONS');
+        setState(() {
+          _detectedRoles = detectedRoles;
+          _showRoleOptions = true;
+          print('🔵 Role options state updated: $_showRoleOptions');
+          print('🔵 Detected roles: $_detectedRoles');
+        });
+      } else {
+        print('\n⚠️ No roles to display');
+      }
 
       final botMessage = {
         'text': responseText,
@@ -254,16 +434,117 @@ class _ChatPageState extends State<ChatPage> {
         setState(() => _isGeneratingResponse = false);
       }
     } catch (e) {
-      print('Error generating response: $e');
-      if (mounted) {
-        setState(() => _isGeneratingResponse = false);
-        final errorMessage = {
-          'text': 'Sorry, I encountered an error. Please try again.',
+      print('❌ Error generating response: $e');
+      setState(() => _isGeneratingResponse = false);
+    }
+  }
+
+  void _handleRoleSelection(int index) {
+    if (index < _detectedRoles.length) {
+      final selectedRole = _detectedRoles[index];
+      // Generate role details (you can customize this based on your needs)
+      final roleDetails = """
+Role: ${selectedRole.replaceAll(RegExp(r'^#\d+:\s*'), '')}
+
+Description:
+• Help organize and coordinate volunteer activities
+• Work closely with team members
+• Contribute to the success of our Ramadan charity campaign
+
+Requirements:
+• Good communication skills
+• Ability to work in a team
+• Commitment to the cause
+
+Time Commitment: 
+• 5-10 hours per week
+• Flexible scheduling
+
+Location: 
+• Mix of remote and on-site work
+""";
+
+      setState(() {
+        _selectedRole = selectedRole;
+        _selectedRoleDetails = roleDetails;
+        _showRoleDetails = true;
+      });
+    }
+  }
+
+  void _handleRoleConfirmation(bool accepted) {
+    setState(() {
+      _showRoleDetails = false;
+      _showRoleOptions = false;
+      if (accepted && _selectedRole != null) {
+        ConversationManager.addMessage({
+          'text':
+              'You have accepted the role: $_selectedRole\n\nRole Details:\n$_selectedRoleDetails\n\nOur team will contact you soon with further details.',
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      }
+      _selectedRole = null;
+      _selectedRoleDetails = null;
+    });
+  }
+
+  String _getLastNMessages(int n) {
+    final lastMessages = _messages.take(n).toList().reversed;
+    return lastMessages
+        .map((msg) => "${msg.isUser ? 'User' : 'Assistant'}: ${msg.text}")
+        .join('\n');
+  }
+
+  Future<void> _pickAndReadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'txt',
+          'md',
+          'json',
+          'yaml',
+          'dart',
+          'js',
+          'py',
+          'html',
+          'css'
+        ],
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final content = await file.readAsString();
+
+        // Split content into chunks (simple approach - split by paragraphs)
+        final chunks = content.split(RegExp(r'\n\s*\n'));
+
+        // Add chunks to vector store
+        for (var i = 0; i < chunks.length; i++) {
+          if (chunks[i].trim().isNotEmpty) {
+            _vectorStore.addDocument(
+              chunks[i].trim(),
+              '${result.files.single.name}:chunk_$i',
+            );
+          }
+        }
+
+        setState(() {
+          _currentFileContent = content;
+          _currentFileName = result.files.single.name;
+        });
+
+        // Add a system message indicating file was loaded
+        final systemMessage = {
+          'text': 'File loaded: $_currentFileName',
           'isUser': false,
           'timestamp': DateTime.now().toIso8601String(),
         };
-        ConversationManager.addMessage(errorMessage);
+        ConversationManager.addMessage(systemMessage);
       }
+    } catch (e) {
+      print('Error picking/reading file: $e');
     }
   }
 
@@ -276,6 +557,7 @@ class _ChatPageState extends State<ChatPage> {
           messageStream: broadcastStream,
           onConversationComplete: (conversation) {},
           initialConversation: _conversationHistory,
+          roleMatcher: _roleMatcher, // Add this line
         ),
       ),
     );
@@ -392,6 +674,8 @@ class _ChatPageState extends State<ChatPage> {
                 _buildMessageInput(),
               ],
             ),
+            _buildRoleOptions(), // Moved here to overlay on top
+            _buildRoleDetails(), // Add this line before the closing bracket of children
           ],
         ),
       ),
@@ -435,48 +719,407 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessage(ChatMessage message) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment:
-            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!message.isUser) _buildAvatar(isUser: false),
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.7,
-            ),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: message.isUser
-                  ? const LinearGradient(
-                      colors: [
-                        Color.fromARGB(255, 26, 126, 51),
-                        Color.fromARGB(120, 26, 126, 51),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : const LinearGradient(
-                      colors: [
-                        Color.fromARGB(120, 26, 126, 51),
-                        Color.fromARGB(65, 26, 126, 51),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              message.text,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 14,
+    return GestureDetector(
+      onTap: message.isSuggestion
+          ? () => _handleSubmitted(_roleMatcher.generateRoleMatchPrompt())
+          : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisAlignment:
+              message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!message.isUser) _buildAvatar(isUser: false),
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: message.isSuggestion
+                    ? const LinearGradient(
+                        colors: [
+                          Color.fromARGB(255, 100, 149, 237),
+                          Color.fromARGB(120, 100, 149, 237),
+                        ],
+                      )
+                    : message.isUser
+                        ? const LinearGradient(
+                            colors: [
+                              Color.fromARGB(255, 26, 126, 51),
+                              Color.fromARGB(120, 26, 126, 51),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          )
+                        : const LinearGradient(
+                            colors: [
+                              Color.fromARGB(120, 26, 126, 51),
+                              Color.fromARGB(65, 26, 126, 51),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                message.text,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
               ),
             ),
+            if (message.isUser) _buildAvatar(isUser: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleConfirmation() {
+    if (!_showRoleConfirmation || _suggestedRole == null)
+      return SizedBox.shrink();
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      margin: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            offset: Offset(0, 2),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.1),
           ),
-          if (message.isUser) _buildAvatar(isUser: true),
         ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Would you like to accept this role?',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: () => _handleRoleConfirmation(true),
+                child: Text('Accept'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => _handleRoleConfirmation(false),
+                child: Text('Decline'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoleOptions() {
+    if (!_showRoleOptions || _detectedRoles.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 0,
+      right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.volunteer_activism,
+                          color: Color.fromARGB(255, 26, 126, 51),
+                          size: 20,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Recommended Roles',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Color.fromARGB(255, 26, 126, 51),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: Colors.grey[600],
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showRoleOptions = false;
+                            _detectedRoles = [];
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  constraints: BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _detectedRoles.length,
+                    itemBuilder: (context, index) {
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _handleRoleSelection(index),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: Color.fromARGB(255, 26, 126, 51)
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '#${index + 1}',
+                                      style: GoogleFonts.poppins(
+                                        color: Color.fromARGB(255, 26, 126, 51),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _detectedRoles[index].replaceAll(
+                                            RegExp(r'^#\d+:\s*'), ''),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Tap to select this role',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 16,
+                                  color: Colors.grey[400],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleDetails() {
+    if (!_showRoleDetails ||
+        _selectedRole == null ||
+        _selectedRoleDetails == null) {
+      return SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 0,
+      right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              Color.fromARGB(255, 26, 126, 51).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.assignment_outlined,
+                          color: Color.fromARGB(255, 26, 126, 51),
+                          size: 20,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Role Details',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Color.fromARGB(255, 26, 126, 51),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: Colors.grey[600]),
+                        onPressed: () => setState(() {
+                          _showRoleDetails = false;
+                          _selectedRole = null;
+                          _selectedRoleDetails = null;
+                        }),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _selectedRoleDetails!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => _handleRoleConfirmation(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[300],
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text('Decline',
+                                style: TextStyle(color: Colors.black87)),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _handleRoleConfirmation(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color.fromARGB(255, 26, 126, 51),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text('Accept Role',
+                                style: TextStyle(
+                                    color: const Color.fromARGB(
+                                        221, 255, 255, 255))),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -499,6 +1142,11 @@ class _ChatPageState extends State<ChatPage> {
           IconButton(
             icon: const Icon(Icons.mic),
             onPressed: _openVoiceChatScreen,
+            color: Colors.grey,
+          ),
+          IconButton(
+            icon: const Icon(Icons.attach_file),
+            onPressed: _pickAndReadFile,
             color: Colors.grey,
           ),
           Expanded(
@@ -552,10 +1200,12 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final bool isSuggestion;
 
   ChatMessage({
     required this.text,
     required this.isUser,
     required this.timestamp,
+    this.isSuggestion = false,
   });
 }
