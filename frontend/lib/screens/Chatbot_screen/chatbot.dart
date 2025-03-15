@@ -51,22 +51,8 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _initializeApp();
-    _setupRoleMatcher();
-    
-    // Add initial suggestion message
-    WidgetsBinding.instance?.addPostFrameCallback((_) {
-      if (_messages.isEmpty) {
-        setState(() {
-          _messages.insert(0, ChatMessage(
-            text: "What roles would be best for me?",
-            isUser: false,
-            timestamp: DateTime.now(),
-            isSuggestion: true,
-          ));
-        });
-      }
-    });
-    
+    // Remove the system prompt from initState since it's now handled in _setupRoleMatcher
+
     // Set up auto-save timer
     _autoSaveTimer = Timer.periodic(Duration(seconds: 1), (_) {
       ConversationManager.saveHistory();
@@ -96,60 +82,121 @@ class _ChatPageState extends State<ChatPage> {
     _connectWebSocket();
     _setupAudioPlayerListeners();
     _initializeGemini();
+    _setupRoleMatcher();
   }
 
   Future<void> _setupRoleMatcher() async {
     try {
-      // Load the campaign document
-      final documentContent = await rootBundle.loadString('assets/documents/document.txt');
-      
-      // Create user profile from user.txt
-      final userContent = await rootBundle.loadString('assets/documents/user.txt');
+      final documentContent =
+          await rootBundle.loadString('assets/documents/document.txt');
+      final userContent =
+          await rootBundle.loadString('assets/documents/user.txt');
       final userProfile = _parseUserProfile(userContent);
-      
+
       _roleMatcher.initializeWithDocuments(
         documentContent: documentContent,
         userProfile: userProfile,
+        rawUserProfile: userContent,
       );
 
-      if (mounted) {
+      // Generate initial context and add to conversation
+      final initialContext = _roleMatcher.generateRoleMatchPrompt();
+      print('\n🚀 INITIAL CONTEXT SET');
+
+      if (mounted && initialContext.isNotEmpty) {
         setState(() {
-          _messages.insert(0, ChatMessage(
-            text: "Click here to find the best volunteering roles based on your profile and interests",
+          _messages.clear();
+          _messages.add(ChatMessage(
+            text:
+                "Hello! I'm here to help you find the perfect role in our Ramadan charity campaign.",
             isUser: false,
             timestamp: DateTime.now(),
-            isSuggestion: true,
           ));
+        });
+
+        // Store initial context in conversation history
+        ConversationManager.addMessage({
+          'text': initialContext,
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+          'isContext': true, // Mark as context message
         });
       }
     } catch (e) {
-      print('Error setting up role matcher: $e');
+      print('❌ Error setting up role matcher: $e');
     }
   }
 
   Map<String, dynamic> _parseUserProfile(String content) {
-    final lines = content.split('\n');
-    final profile = <String, dynamic>{};
-    
-    for (var line in lines) {
-      if (line.contains('|')) {
-        final parts = line.split('|');
-        profile['name'] = parts[0].trim();
-      } else if (line.contains(':')) {
-        final parts = line.split(':');
-        final key = parts[0].trim().toLowerCase().replaceAll(' ', '_');
-        dynamic value = parts[1].trim();
-        
-        // Handle lists
-        if (value.startsWith('[') && value.endsWith(']')) {
-          value = value.substring(1, value.length - 1).split(',').map((e) => e.trim()).toList();
-        }
-        
-        profile[key] = value;
-      }
+    try {
+      // Clean up the content and ensure proper JSON formatting
+      content = content
+          .replaceAll("'", '"')
+          .replaceAll(RegExp(r',\s*}$'), '}')
+          .trim();
+
+      print('📝 Raw profile content:');
+      print(content);
+
+      final Map<String, dynamic> rawProfile = json.decode(content);
+
+      // Enhanced regex patterns with better handling of different formats
+      final RegExp namePattern =
+          RegExp(r'Name:\s*([^,\n]+)', caseSensitive: false);
+      final RegExp occupationPattern =
+          RegExp(r'Occupation:\s*([^,\n]+)', caseSensitive: false);
+      final RegExp capacityPattern =
+          RegExp(r'Donation Capacity:\s*([^,\n]+)', caseSensitive: false);
+
+      // Extract background information
+      final background = rawProfile['background'] as String? ?? '';
+
+      // Extract specific fields with null safety
+      final name =
+          namePattern.firstMatch(background)?.group(1)?.trim() ?? 'Unknown';
+      final occupation =
+          occupationPattern.firstMatch(background)?.group(1)?.trim() ??
+              'Not specified';
+      final capacity = capacityPattern.firstMatch(background)?.group(1)?.trim();
+
+      // Build profile with default values for null cases
+      final profile = {
+        'background': background,
+        'capacity': rawProfile['capacity'] ?? 'Not specified',
+        'motivations': rawProfile['motivations'] ?? 'Not specified',
+        'skills': rawProfile['skills'] ?? 'Not specified',
+        'interests': rawProfile['interests'] ?? 'Not specified',
+        'experience': rawProfile['experience'] ?? 'Not specified',
+        'values': rawProfile['values'] ?? 'Not specified',
+        'goals': rawProfile['goals'] ?? 'Not specified',
+        'context': rawProfile['context'] ?? '',
+        'name': name,
+        'occupation': occupation,
+        'donation_capacity': capacity ?? 'Not specified',
+      };
+
+      print('✅ Parsed profile:');
+      print(json.encode(profile));
+
+      return profile;
+    } catch (e) {
+      print('❌ Error parsing user profile: $e');
+      // Return a default profile instead of empty map
+      return {
+        'background': 'Not provided',
+        'capacity': 'Not specified',
+        'motivations': 'Not specified',
+        'skills': 'Not specified',
+        'interests': 'Not specified',
+        'experience': 'Not specified',
+        'values': 'Not specified',
+        'goals': 'Not specified',
+        'context': '',
+        'name': 'Unknown User',
+        'occupation': 'Not specified',
+        'donation_capacity': 'Not specified',
+      };
     }
-    
-    return profile;
   }
 
   Future<void> _loadConversationHistory() async {
@@ -302,42 +349,29 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _handleSubmitted(String text) async {
-    _messageController.clear();
     if (text.trim().isEmpty) return;
+    _messageController.clear();
 
+    // Add user message to conversation
     final userMessage = {
       'text': text,
       'isUser': true,
       'timestamp': DateTime.now().toIso8601String(),
     };
-
     ConversationManager.addMessage(userMessage);
+
     setState(() => _isGeneratingResponse = true);
 
     try {
-      String prompt;
-      if (text.toLowerCase().contains('role') || text.toLowerCase().contains('fit') || 
-          text.toLowerCase().contains('position') || text.toLowerCase().contains('volunteer')) {
-        // Use role matching prompt for role-related queries
-        prompt = _roleMatcher.generateRoleMatchPrompt();
-      } else {
-        // Regular query handling
-        final relevantDocs = _vectorStore.search(text, topK: 3);
-        prompt = "You are a helpful AI assistant for a Ramadan charity campaign. ";
-        
-        if (relevantDocs.isNotEmpty) {
-          prompt += "\nHere are some relevant details from the campaign documents:\n\n";
-          for (var doc in relevantDocs) {
-            prompt += "From ${doc.source}:\n${doc.content}\n\n";
-          }
-        }
-        
-        prompt += "\nBased on this context, please respond to: $text";
-      }
+      // Get the full context including the user's query
+      final contextualPrompt = _roleMatcher.generateRoleMatchPrompt(text);
 
-      final content = [genai.Content.text(prompt)];
+      final content = [genai.Content.text(contextualPrompt)];
       final response = await model.generateContent(content);
-      final responseText = response.text ?? "Sorry, I couldn't generate a response";
+      final responseText =
+          response.text ?? "Sorry, I couldn't generate a response";
+
+      print('\n✨ RESPONSE GENERATED');
 
       final botMessage = {
         'text': responseText,
@@ -347,44 +381,52 @@ class _ChatPageState extends State<ChatPage> {
 
       if (mounted) {
         ConversationManager.addMessage(botMessage);
-        setState(() => _isGeneratingResponse = false);
-
-        // Check if response contains role suggestions and show confirmation
-        if (text.toLowerCase().contains('role') || text.toLowerCase().contains('fit')) {
-          setState(() {
+        setState(() {
+          _isGeneratingResponse = false;
+          if (text.toLowerCase().contains('role') ||
+              text.toLowerCase().contains('fit')) {
             _showRoleConfirmation = true;
-            _suggestedRole = responseText; // Store the full response
-          });
-        }
+            _suggestedRole = responseText;
+          }
+        });
       }
     } catch (e) {
-      print('Error generating response: $e');
-      if (mounted) {
-        setState(() => _isGeneratingResponse = false);
-        final errorMessage = {
-          'text': 'Sorry, I encountered an error. Please try again.',
-          'isUser': false,
-          'timestamp': DateTime.now().toIso8601String(),
-        };
-        ConversationManager.addMessage(errorMessage);
-      }
+      print('❌ Error generating response: $e');
+      // ...existing error handling code...
     }
+  }
+
+  String _getLastNMessages(int n) {
+    final lastMessages = _messages.take(n).toList().reversed;
+    return lastMessages
+        .map((msg) => "${msg.isUser ? 'User' : 'Assistant'}: ${msg.text}")
+        .join('\n');
   }
 
   Future<void> _pickAndReadFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['txt', 'md', 'json', 'yaml', 'dart', 'js', 'py', 'html', 'css'],
+        allowedExtensions: [
+          'txt',
+          'md',
+          'json',
+          'yaml',
+          'dart',
+          'js',
+          'py',
+          'html',
+          'css'
+        ],
       );
 
       if (result != null) {
         final file = File(result.files.single.path!);
         final content = await file.readAsString();
-        
+
         // Split content into chunks (simple approach - split by paragraphs)
         final chunks = content.split(RegExp(r'\n\s*\n'));
-        
+
         // Add chunks to vector store
         for (var i = 0; i < chunks.length; i++) {
           if (chunks[i].trim().isNotEmpty) {
@@ -399,7 +441,7 @@ class _ChatPageState extends State<ChatPage> {
           _currentFileContent = content;
           _currentFileName = result.files.single.name;
         });
-        
+
         // Add a system message indicating file was loaded
         final systemMessage = {
           'text': 'File loaded: $_currentFileName',
@@ -583,7 +625,9 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildMessage(ChatMessage message) {
     return GestureDetector(
-      onTap: message.isSuggestion ? () => _handleSubmitted(_roleMatcher.generateRoleMatchPrompt()) : null,
+      onTap: message.isSuggestion
+          ? () => _handleSubmitted(_roleMatcher.generateRoleMatchPrompt())
+          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -639,7 +683,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildRoleConfirmation() {
-    if (!_showRoleConfirmation || _suggestedRole == null) return SizedBox.shrink();
+    if (!_showRoleConfirmation || _suggestedRole == null)
+      return SizedBox.shrink();
 
     return Container(
       padding: EdgeInsets.all(16),
@@ -692,7 +737,8 @@ class _ChatPageState extends State<ChatPage> {
     if (accepted) {
       // Implement role acceptance logic
       ConversationManager.addMessage({
-        'text': 'Great! You have accepted the role. Our team will contact you soon.',
+        'text':
+            'Great! You have accepted the role. Our team will contact you soon.',
         'isUser': false,
         'timestamp': DateTime.now().toIso8601String(),
       });

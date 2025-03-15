@@ -1,48 +1,11 @@
-Layla Benali | "The Community Organizer"
-Age: 32
-Occupation: Primary school teacher
-Skills and Strengths:
-
-Exceptional organizational abilities with experience coordinating school events for 300+ participants
-Natural leadership skills; can motivate diverse groups of people toward common goals
-Effective communication across different age groups and backgrounds
-Fluent in Arabic, French, and English
-Creative problem-solving, especially with limited resources
-Digital skills including spreadsheet management and social media coordination
-
-Interests:
-
-Community building and strengthening local social networks
-Educational outreach programs for underprivileged children
-Traditional Algerian cooking and food preservation techniques
-Cultural heritage preservation through intergenerational activities
-Sustainable approaches to community support systems
-Photography and visual storytelling
-
-Experience:
-
-8 years teaching at local primary school in diverse neighborhood
-Volunteer coordinator for neighborhood mosque's women's group
-Previously managed food distribution during Covid-19 emergency response
-Organized teacher-parent committees to improve school resources
-Dislikes rigid hierarchies and overly bureaucratic processes
-
-Values:
-
-Making tangible impact in the lives of community members
-Integrity and transparency in humanitarian work
-Recognition of local knowledge and cultural sensitivity
-Work-life balance that accommodates family responsibilities
-Creating sustainable systems rather than one-time interventions
-Dignity-centered approach to charitable work
-
-Goals:
-
-Develop a year-round food security program beyond Ramadan
-Create a replicable model for community-led charitable initiatives
-Build professional skills in project management and community development
-Eventually transition to full-time work in the non-profit sector
-Establish a mentorship network for women in community organizing
-
-Context:
-Seeking a leadership role within the volunteer coordination team, particularly focused on family engagement and recipient dignity preservation. Available evenings and weekends throughout Ramadan with capacity to help with pre-campaign planning.
+{
+  'background': 'Name: Layla Benali\nOccupation: Primary school teacher',
+  'capacity': 'Donation Capacity: Limited financial contribution but 15+ hours weekly volunteering',
+  'motivations': 'Motivations: Community building, making tangible impact, creating sustainable systems',
+  'skills': 'Skills and Strengths: Organizational abilities, leadership, communication across diverse groups, trilingual (Arabic, French, English), creative problem-solving',
+  'interests': 'Interests: Community development, educational outreach, traditional Algerian cooking, cultural heritage preservation',
+  'experience': 'Experience: 8 years teaching, volunteer coordinator at local mosque, managed food distribution during Covid-19, organized teacher-parent committees',
+  'values': 'Values: Tangible impact, integrity, cultural sensitivity, work-life balance, dignity-centered approach',
+  'goals': 'Goals: Develop year-round food security program, create replicable model for community initiatives, transition to non-profit sector',
+  'context': 'Context: Seeking leadership role in volunteer coordination, available evenings and weekends'
+}

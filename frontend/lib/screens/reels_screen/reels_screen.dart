@@ -95,12 +95,20 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     _preloadVideos(_currentIndex);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _currentController?.pause();
+    }
+  }
+
   Future<File> _cacheVideo(String url, int index) async {
     final fileStream = DefaultCacheManager().getFileStream(
       url,
       withProgress: true,
     );
-    
+
     File? cachedFile;
     await for (final event in fileStream) {
       if (event is FileInfo) {
@@ -114,32 +122,32 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   Future<void> _preloadVideos(int currentIndex) async {
     // Load current video
     await _loadAndInitializeVideo(currentIndex);
-    
+
     // Preload next video if available
     if (currentIndex < videos.length - 1) {
       _precacheVideo(currentIndex + 1);
     }
-    
+
     // Preload previous video if available
     if (currentIndex > 0) {
       _precacheVideo(currentIndex - 1);
     }
-    
+
     // Clean up old cached videos
     _cleanupCache(currentIndex);
   }
 
   Future<void> _precacheVideo(int index) async {
     if (_controllerCache.containsKey(index)) return;
-    
+
     try {
       final cachedFile = await _cacheVideo(videos[index], index);
       final controller = VideoPlayerController.file(cachedFile)
         ..setLooping(true);
-      
+
       _initializingFutures[index] = controller.initialize();
       _controllerCache[index] = controller;
-      
+
       // Start buffering but don't play
       await controller.initialize();
     } catch (e) {
@@ -164,6 +172,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadAndInitializeVideo(int index) async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -172,13 +182,20 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     try {
       if (_currentController != null) {
         await _currentController!.pause();
+        _currentController?.dispose();
+        _currentController = null;
       }
+
+      // Clear memory before loading new video
+      await DefaultCacheManager().emptyCache();
 
       if (_controllerCache.containsKey(index)) {
         _currentController = _controllerCache[index];
         await _initializingFutures[index];
       } else {
         final cachedFile = await _cacheVideo(videos[index], index);
+        if (!mounted) return;
+
         _currentController = VideoPlayerController.file(cachedFile)
           ..setLooping(true);
         await _currentController!.initialize();
@@ -209,10 +226,15 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _controllerCache.values.forEach((controller) => controller.dispose());
+    _controllerCache.values.forEach((controller) {
+      controller.pause();
+      controller.dispose();
+    });
     _controllerCache.clear();
     _initializingFutures.clear();
+    _currentController?.dispose();
     _pageController.dispose();
+    DefaultCacheManager().emptyCache();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
