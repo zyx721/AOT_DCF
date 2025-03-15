@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'comments_sheet.dart';
+import '../view_profile_screen/view_profile_screen.dart';
 
 class ReelsScreen extends StatefulWidget {
   final int initialIndex;
@@ -602,38 +603,53 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       children: [
         Row(
           children: [
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(videoData['creatorId'])
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                ),
+              ),
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(videoData['creatorId'])
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage('default_avatar_url'),
+                    );
+                  }
+                  
+                  final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                  final userPhotoURL = userData?['photoURL'] as String? ?? 'default_avatar_url';
+                  
                   return CircleAvatar(
                     radius: 20,
-                    backgroundImage: NetworkImage('default_avatar_url'),
+                    backgroundImage: NetworkImage(userPhotoURL),
                   );
-                }
-                
-                final userData = snapshot.data!.data() as Map<String, dynamic>?;
-                final userPhotoURL = userData?['photoURL'] as String? ?? 'default_avatar_url';
-                
-                return CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(userPhotoURL),
-                );
-              },
-            ),
-            SizedBox(width: 12),
-            Text(
-              videoData['creatorName'] ?? 'Anonymous',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+                },
               ),
             ),
             SizedBox(width: 12),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewProfileScreen(userId: videoData['creatorId']),
+                ),
+              ),
+              child: Text(
+                videoData['creatorName'] ?? 'Anonymous',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
